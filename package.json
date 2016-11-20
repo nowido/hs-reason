@@ -1,0 +1,16 @@
+{
+  "name": "h-server",
+  "version": "1.0.0",
+  "description": "different helpers stuff for work and studies",
+  "main": "hs.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.14.0",
+    "redis": "^2.6.3",
+    "socket.io": "^1.5.1"
+  }
+}
