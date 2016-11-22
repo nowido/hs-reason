@@ -1,3 +1,115 @@
+<template id="mainViewModel"><viewmodel interpreter="your-vanity-script.js">
+    
+    <grail>
+        
+        <grailheader>
+            
+            <header  title="Task preparation tool">
+            </header>
+            
+        </grailheader>
+            
+        <grailleft>
+            
+            <block title="Current tasks">
+                
+                <collection name="tasksList" reference="true">
+                </collection>    
+                    
+            </block>
+            
+        </grailleft>
+        
+        <grailmain>
+            
+            <block title="Edit task">
+            
+                <entity name="taskToEdit" fieldscaption="Field" valuescaption="Value">
+                
+                    <var name="caution" value="be cautious, analyse your problem"></var>
+                    <var name="invent" value="try invent exclusive title"></var>
+        
+                    <file   name="trainDataFile"
+                            description="Train data file"
+                            scope="/csv"
+                            path="/csv/1.csv"></file>
+                            
+                    <file   name="testDataFile"
+                            description="Test data file"
+                            scope="/csv"
+                            path="/csv/2.csv"></file>
+                    
+                    <float  name="yAmplitude" 
+                            value="2.0"
+                            min="0.0"
+                            description="Class separation amplitude"
+                            hintglyph="glyphicon-adjust"
+                            placeholder="{caution}"></float>
+                    
+                    <float  name="ySeparator" 
+                            value="0.0"
+                            description="Class separator threshold"
+                            hintglyph="glyphicon-adjust"
+                            placeholder="{caution}"></float>
+                    
+                    <float  name="clusterizationRadius"
+                            value="2.2"
+                            min="0.0"
+                            description="Clusterization radius (in unit space)"
+                            hintglyph="glyphicon-record"
+                            placeholder="{caution}"></float>
+        
+                    <float  name="qFactor"
+                            value="4"
+                            min="1.0"
+                            description="Q factor"
+                            hintglyph="glyphicon-scale"
+                            placeholder="{caution}"></float>
+                            
+                    <bool   name="adaptiveAnfisRulesCount"
+                            value="false"
+                            description="Adaptive ANFIS rules count"></bool>
+                    
+                    <int    name="lbfgsIterationsCount"
+                            value="1000"
+                            min="1"
+                            description="L-BFGS iterations count"
+                            hintglyph="glyphicon-hourglass"
+                            placeholder="{caution}"></int>
+                    
+                </entity>
+                
+                <station>
+                    
+                    <command action="submit" description="Submit">
+                    </command>
+                    
+                    <command action="reset" description="Reset">
+                    </command>
+                    
+                </station>
+                
+            </block>
+            
+        </grailmain>
+        
+        <grailfooter>
+            
+        </grailfooter>
+        
+    </grail>
+    
+    <status>
+        
+        <indicator name="connectionStatus">
+        </indicator>
+        
+        <infoline name="generalInfo">
+        </infoline>
+        
+    </status>
+</viewmodel></template>
+
 <div class="container" role="main">
     <div class="row">
         <div class="col-md-12">
@@ -28,12 +140,30 @@
                         </div>
                         
                     </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <button class="btn btn-primary" id="buttonSubmitTask">Submit task</button>
+                        </div>
+                    </div>
                 </div>
                 
             </div> <!-- end of semantic area -->
+            
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="page-header">
+                        <h1></h1>
+                    </div>
+                </div>
+            </div>
 
-            <div class="page-header">
-                <h3></h3>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="page-header">
+                        <h1></h1>
+                    </div>
+                </div>
             </div>
             
         </div>
