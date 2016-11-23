@@ -51,7 +51,8 @@ var cachedFiles =
     {mode: 'bin', path : './bootstrap/fonts/glyphicons-halflings-regular.ttf'},
     {mode: 'bin', path : './bootstrap/fonts/glyphicons-halflings-regular.svg.gz'},
     {mode: 'text', path : './bootstrap/fonts/glyphicons-halflings-regular.svg'},
-    {mode: 'bin', path : './bootstrap/fonts/glyphicons-halflings-regular.eot'}
+    {mode: 'bin', path : './bootstrap/fonts/glyphicons-halflings-regular.eot'},
+    {mode: 'text', path : './scripts/vmbuilder-bs.js'}
 ];
 
 const jqgzip        = 0;
@@ -77,6 +78,7 @@ const bsfonttf      = 19;
 const bsfontsvgzip  = 20;
 const bsfontsvg     = 21;
 const bsfonteot     = 22;
+const vmbuilderbs   = 23;
 
 //------------------------------------------------------------------------------
 
@@ -284,6 +286,7 @@ Promise.all(asyncInitializationPhases).then(() =>
         cachedFiles[pagetask].content +
         cachedFiles[pagend1].content + 
         cachedFiles[cliapis].content + '\n' +
+        cachedFiles[vmbuilderbs].content + '\n' +
         cachedFiles[task].content + '\n' +
         cachedFiles[pagend2].content;
     
