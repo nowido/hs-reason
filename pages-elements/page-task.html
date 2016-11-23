@@ -28,16 +28,17 @@
                 
                     <var name="caution" value="be cautious, analyse your problem"></var>
                     <var name="invent" value="try invent exclusive title"></var>
-        
+                    <var name="scope" value="/csv"></var>
+                    
                     <file   name="trainDataFile"
                             description="Train data file"
-                            scope="/csv"
-                            path="/csv/1.csv"></file>
+                            scope="{scope}"
+                            path="1.csv"></file>
                             
                     <file   name="testDataFile"
                             description="Test data file"
-                            scope="/csv"
-                            path="/csv/2.csv"></file>
+                            scope="{scope}"
+                            path="2.csv"></file>
                     
                     <float  name="yAmplitude" 
                             value="2.0"
@@ -65,6 +66,12 @@
                             description="Q factor"
                             hintglyph="glyphicon-scale"
                             placeholder="{caution}"></float>
+
+                    <int    name="anfisRulesCount"
+                            min="1"
+                            description="ANFIS rules count"
+                            hintglyph="glyphicon-option-vertical"
+                            placeholder="{caution}"></int>
                             
                     <bool   name="adaptiveAnfisRulesCount"
                             value="false"
@@ -76,6 +83,38 @@
                             description="L-BFGS iterations count"
                             hintglyph="glyphicon-hourglass"
                             placeholder="{caution}"></int>
+
+                    <int    name="lbfgsHistorySize"
+                            value="10"
+                            min="1"
+                            description="L-BFGS history size"
+                            hintglyph="glyphicon-cog"
+                            placeholder="~10-20, greater is slower"></int>
+
+                    <int    name="lbfgsReportStepsCount"
+                            value="20"
+                            min="1"
+                            description="L-BFGS report steps count"
+                            hintglyph="glyphicon-dashboard"
+                            placeholder="low values will populate your logs faster"></int>
+
+                    <float  name="acceptableErrorThreshold"
+                            value="0.25"
+                            min="0.0"
+                            max="0.5"
+                            description="Acceptable error threshold"
+                            hintglyph="glyphicon-filter"
+                            placeholder="0.5 is very bad; lower is better"></float>
+                    
+                    <string name="acceptableModelsTargetToken"
+                            description="Acceptable models token"
+                            hintglyph="glyphicon-random"
+                            placeholder="{invent}"></string>
+
+                    <string name="bestModelTargetToken"
+                            description="Best model token"
+                            hintglyph="glyphicon-random"
+                            placeholder="{invent}"></string>
                     
                 </entity>
                 
@@ -85,6 +124,9 @@
                     </command>
                     
                     <command action="reset" description="Reset">
+                    </command>
+
+                    <command action="delete" description="Delete">
                     </command>
                     
                 </station>
@@ -110,65 +152,11 @@
     </status>
 </viewmodel></template>
 
-<div class="container" role="main">
-    <div class="row">
-        <div class="col-md-12">
-            
-            <div class="page-header">
-                <h1>Task preparation tool</h1>
-            </div>
-            
-            <!-- semantic area -->
-            <div class="row">
-                
-                <div class="col-md-4">
-                    <h3>Data folder content</h3>
-                    
-                    <!-- app:/csv folder content list -->
-                    <ul class="list-group" id="csvList">
-                    </u>
-                </div>
-                
-                <div class="col-md-8">
-                    <div class="panel panel-primary">
-                        
-                        <div class="panel-heading">
-                            <h3 class="panel-title">Task object</h3>    
-                        </div>
-                        
-                        <div class="panel-body" id="objectTableContainer">
-                        </div>
-                        
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4">
-                            <button class="btn btn-primary" id="buttonSubmitTask">Submit task</button>
-                        </div>
-                    </div>
-                </div>
-                
-            </div> <!-- end of semantic area -->
-            
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="page-header">
-                        <h1></h1>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="page-header">
-                        <h1></h1>
-                    </div>
-                </div>
-            </div>
-            
-        </div>
-    </div>
+<div id="mountPoint">
     
+</div>
+
+
     <!-- status area -->
     <nav class="navbar bg-info navbar-fixed-bottom">
         
