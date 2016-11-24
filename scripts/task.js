@@ -43,138 +43,49 @@ Model.prototype.getDataFilesList = function()
                 listNames = [];
             }
             
-            entry.controller.update
-            ({
-                listUpdate: {items: listNames}
-            });
+            // to update view, touch property with full object, not a field
+            //  (update is triggered by "set" accessor, 
+            //      and field would be just common assignment to the "got" object)
+            
+            var collectionEntry = entry.tasksList;
+            collectionEntry.collection = listNames;
+            
+            entry.tasksList = collectionEntry;
         })
         .catch(errContext => 
         {
-            entry.controller.update
-            ({
-                infoUpdate: {warning: true, content: errContext.message.error}
-            });
+            // to do assign to info field, view will update automatically
         });
 }
 
 //------------------------------------------------------------------------------
 
-function Controller()
-{
-}
-
-Controller.prototype.connectModel = function(model)
-{
-    this.model = model;
-}
-
-Controller.prototype.connectView = function(view)
-{
-    this.view = view;
-}
-
-/*
-Controller.prototype.update = function(reason)
-{
-    if(reason.infoUpdate)
-    {
-        var info = reason.infoUpdate;
-        
-        if(info.warning)
-        {
-            this.view.setInfoLabelWarning(info.content);
-        }
-        else
-        {
-            this.view.setInfoLabelSuccess(info.content);
-        }
-    }
-    else if(reason.listUpdate)
-    {
-        this.view.fillFilesList(reason.listUpdate.items);
-    }
-}
-*/
-
-Controller.prototype.update = function(reason)
-{
-    // from model to view
-    
-    console.log(reason);
-}
-
-Controller.prototype.notify = function(reason)
-{
-    // from view to model
-    
-    console.log(reason);
-}
-
-//------------------------------------------------------------------------------
-/*
-function View()
-{
-    this.infoLabel = $('#infoLabel');
-    this.csvList = $('#csvList');
-}
-
-View.prototype.setInfoLabelSuccess = function(info)
-{
-    this.infoLabel.removeClass('text-warning').addClass('text-default').html(info);    
-}
-
-View.prototype.setInfoLabelWarning = function(info)
-{
-    this.infoLabel.removeClass('text-default').addClass('text-warning').html(info);    
-}
-
-View.prototype.fillFilesList = function(list)
-{
-    var markup = '';
-    
-    list.forEach(item => 
-    {
-        markup += '<li class="list-group-item">' + item + '</li>';        
-    });
-    
-    this.csvList.html(markup);
-    
-    if(list.length > 0)
-    {
-        this.setInfoLabelSuccess('found ' + list.length + ' files in /csv');
-    }
-    else
-    {
-        this.setInfoLabelWarning('no data files in /csv');
-    }
-}
-*/
-//------------------------------------------------------------------------------
-
 function main(commander)
 {
-    var viewBuilder = new ViewBuilder("mainViewModel");
-    
-        console.log(viewBuilder.vars);
-    
-    $('#mountPoint').html(viewBuilder.html);
-    
-    viewBuilder.setHandlers(Object.keys(viewBuilder.vars));
-    
-    viewBuilder.update('taskToEdit_clusterizationRadius', '123.456');
+    var viewBuilder = new ViewBuilder('mainViewModel', 'mountPoint');
     
     var model = new Model(commander);
     
-    var controller = new Controller();
+    viewBuilder.buildModelProperties(model);
     
-    controller.connectModel(model);
+    model.actionSubmit = 
+    {
+    proc: context => 
+            {
+                alert(context);    
+            },
+    context: '12345'
+    }
     
-    model.connectController(controller);
+    model.tasksList = 
+    {
+    proc: (index, context) => 
+            {
+                alert(index + ', ' + context);    
+            },
+    context: '12345'
+    }
     
-    controller.connectView(viewBuilder);
-    
-    viewBuilder.connectController(controller);
-
     model.getDataFilesList();
 }
 
