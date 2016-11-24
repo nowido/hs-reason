@@ -26,14 +26,13 @@
             
                 <entity name="taskToEdit" fieldscaption="Field" valuescaption="Value">
                 
-                    <var name="caution" value="be cautious, analyse your problem"></var>
-                    <var name="invent" value="try invent exclusive title"></var>
-                    <var name="scope" value="/csv"></var>
+                    <const name="caution" value="be cautious, analyse your problem"></const>
+                    <const name="invent" value="try invent exclusive title"></const>
+                    <const name="scope" value="/csv"></const>
                     
                     <file   name="trainDataFile"
                             description="Train data file"
-                            scope="{scope}"
-                            path="1.csv"></file>
+                            scope="{scope}"></file>
                             
                     <file   name="testDataFile"
                             description="Test data file"
@@ -120,15 +119,20 @@
                 
                 <station>
                     
-                    <command action="submit" description="Submit">
-                    </command>
+                    <command    name="actionSubmit"
+                                action="primary"
+                                description="Submit"
+                                hintglyph="glyphicon-cloud-upload"></command>
                     
-                    <command action="reset" description="Reset">
-                    </command>
+                    <command    name="actionReset"
+                                action="default"
+                                description="Reset"
+                                hintglyph="glyphicon-home"></command>
 
-                    <command action="delete" description="Delete">
-                    </command>
-                    
+                    <command    name="actionDelete"
+                                action="danger"
+                                description="Delete"
+                                hintglyph="glyphicon-trash"></command>
                 </station>
                 
             </block>
