@@ -1,54 +1,69 @@
 //------------------------------------------------------------------------------
 
-function ViewBuilder(id)
+function ViewBuilder(idTemplate, idMountPoint)
 {
     this.registry = 
     {
-        'VIEWMODEL': ViewBuilder.prototype.parseViewModel.bind(this),
-        'GRAIL': ViewBuilder.prototype.parseGrail.bind(this),
-        'HEADER': ViewBuilder.prototype.parseHeader.bind(this),
-        'BLOCK': ViewBuilder.prototype.parseBlock.bind(this),
-        'ENTITY': ViewBuilder.prototype.parseEntity.bind(this),
-        'VAR': ViewBuilder.prototype.parseVar.bind(this),
-        'FILE': ViewBuilder.prototype.parseFile.bind(this),
-        'BOOL': ViewBuilder.prototype.parseBool.bind(this),
-        'FLOAT': ViewBuilder.prototype.parseFloat.bind(this),
-        'INT': ViewBuilder.prototype.parseInt.bind(this),
-        'STRING': ViewBuilder.prototype.parseString.bind(this),
-        'COLLECTION': ViewBuilder.prototype.parseCollection.bind(this)
+        'VIEWMODEL': this.parseViewModel.bind(this),
+        'GRAIL': this.parseGrail.bind(this),
+        'HEADER': this.parseHeader.bind(this),
+        'BLOCK': this.parseBlock.bind(this),
+        'ENTITY': this.parseEntity.bind(this),
+        'CONST': this.parseConst.bind(this),
+        'FILE': this.parseFile.bind(this),
+        'BOOL': this.parseBool.bind(this),
+        'FLOAT': this.parseFloat.bind(this),
+        'INT': this.parseInt.bind(this),
+        'STRING': this.parseString.bind(this),
+        'COLLECTION': this.parseCollection.bind(this),
+        'STATION': this.parseStation.bind(this),
+        'COMMAND': this.parseCommand.bind(this)
     };
     
     this.eventHandlers = 
     {
-        'string': {eventType: 'change', handler: ViewBuilder.prototype.onInputChange}, 
-        'int': {eventType: 'change', handler: ViewBuilder.prototype.onInputChange}, 
-        'float': {eventType: 'change', handler: ViewBuilder.prototype.onInputChange}, 
-        'bool': {eventType: 'change', handler: ViewBuilder.prototype.onInputChange}
+        'string': {eventType: 'change', handler: this.onInputChange}, 
+        'int': {eventType: 'change', handler: this.onInputChange}, 
+        'float': {eventType: 'change', handler: this.onInputChange}, 
+        'bool': {eventType: 'change', handler: this.onInputChange},
+        'command': {eventType: 'click', handler: this.onCommand},
+        'collection': {eventType: 'click', handler: this.onCollectionItemSelect}
     };
     
     this.updateHandlers = 
     {
-        'string': ViewBuilder.prototype.updateInput, 
-        'int': ViewBuilder.prototype.updateInput, 
-        'float': ViewBuilder.prototype.updateInput, 
-        'bool': ViewBuilder.prototype.updateInput
+        'string': this.updateInput, 
+        'int': this.updateInput, 
+        'float': this.updateInput, 
+        'bool': this.updateInput,
+        'collection': this.updateCollection
     };
     
     this.vars = {};
 
+    this.nameInfix = generateUniqueKey(6);
+    this.rexNameInfix = new RegExp(this.nameInfix);
+
     this.nameScopeStack = [];
     
-    var template = $('#' + id);
+    var template = $('#' + idTemplate);
     var templateContent = $(template.prop('content')); 
 
     this.html = this.parse(templateContent.children()[0]);
+    
+    if(idMountPoint)
+    {
+        this.insertTo(idMountPoint);
+    }
 }
 
 //------------------------------------------------------------------------------
 
-ViewBuilder.prototype.connectController = function(controller)
+ViewBuilder.prototype.insertTo = function(idMountPoint)
 {
-    this.controller = controller;    
+    $('#' + idMountPoint).html(this.html);
+     
+    this.setHandlers(Object.keys(this.vars)); 
 }
 
 //------------------------------------------------------------------------------
@@ -87,7 +102,8 @@ ViewBuilder.prototype.composeName = function(nameScope, name)
     }
     else
     {
-        return nameScope + '_' + name;
+        //return nameScope + '_' + name;
+        return nameScope + this.nameInfix + name;
     }
 }
 
@@ -101,7 +117,8 @@ ViewBuilder.prototype.resolveValue = function(nameScope, value, type)
     {
         var varName = value.substring(1, value.length - 1);
         
-        var global = /-/.test(varName);
+        //var global = /_/.test(varName);
+        var global = this.rexNameInfix.test(varName);
 
         var resolvedName;
         
@@ -334,7 +351,7 @@ ViewBuilder.prototype.parseBlock = function(blockNode)
     markup.push($(blockNode).attr('title'));
     markup.push('</h3></div><div class="panel-body">');
     markup.push(this.parseChildren(blockNode));
-    markup.push('</div>');
+    markup.push('</div></div>');
     
     return markup.join('');
 }
@@ -393,9 +410,9 @@ ViewBuilder.prototype.parseEntity = function(entityNode)
     return markup.join('');
 }
 
-ViewBuilder.prototype.parseVar = function(varNode)
+ViewBuilder.prototype.parseConst = function(varNode)
 {
-    // <var> tag has attributes:
+    // <const> tag has attributes:
     //  - name
     //  - value
     
@@ -407,7 +424,7 @@ ViewBuilder.prototype.parseVar = function(varNode)
     
     this.vars[fullName] = value;
     
-    return ''; // no html for variables
+    return ''; // no html for constants
 }
 
 ViewBuilder.prototype.parseFile = function(fileNode)
@@ -445,7 +462,7 @@ ViewBuilder.prototype.parseFile = function(fileNode)
     {
         markup.push('<div class="input-group"><button class="btn btn-default" aria-label="Open file dialog" type="button" id="');
         markup.push(fullName);
-        markup.push('"><span class="glyphicon glyphicon-folder-open"></span></button>');
+        markup.push('"><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>');
         
         if(path && (path.length > 0))
         {
@@ -476,7 +493,7 @@ ViewBuilder.prototype.parseBool = function(boolNode)
     
     var fullName = this.composeName(nameScope, name);
 
-    var description = this.resolveAttr(nameScope, boolNode, 'description')
+    var description = this.resolveAttr(nameScope, boolNode, 'description');
     
     var value = this.resolveAttr(nameScope, boolNode, 'value', 'bool');
 
@@ -547,7 +564,7 @@ ViewBuilder.prototype.buildInputGroup = function(type, entry)
     {
         markup.push('<span class="input-group-addon"><span class="glyphicon ');
         markup.push(entry.hintglyph);
-        markup.push('"></span></span>');
+        markup.push('" aria-hidden="true"></span></span>');
     }
     else if(entry.hint)
     {
@@ -671,7 +688,7 @@ ViewBuilder.prototype.parseNumeric = function(numericNode, type)
     
     var step = this.resolveAttr(nameScope, numericNode, 'step', type);
 
-    var description = this.resolveAttr(nameScope, numericNode, 'description')
+    var description = this.resolveAttr(nameScope, numericNode, 'description');
     var hintglyph = this.resolveAttr(nameScope, numericNode, 'hintglyph');
     var hint = this.resolveAttr(nameScope, numericNode, 'hint');
     var placeholder = this.resolveAttr(nameScope, numericNode, 'placeholder');
@@ -722,7 +739,7 @@ ViewBuilder.prototype.parseString = function(stringNode)
 
     var value = this.resolveAttr(nameScope, stringNode, 'value');
     
-    var description = this.resolveAttr(nameScope, stringNode, 'description')
+    var description = this.resolveAttr(nameScope, stringNode, 'description');
     var hintglyph = this.resolveAttr(nameScope, stringNode, 'hintglyph');
     var hint = this.resolveAttr(nameScope, stringNode, 'hint');
     var placeholder = this.resolveAttr(nameScope, stringNode, 'placeholder');
@@ -759,15 +776,84 @@ ViewBuilder.prototype.parseCollection = function(collectionNode)
     {
         entry.reference = true;
     }
-    
+    /*
     var markup = ['<ul class="list-group" id="'];
     
     markup.push(fullName);
     markup.push('"></ul>');
-
+    */
+    
+    var markup = ['<div class="list-group" id="'];
+    markup.push(fullName);
+    markup.push('"></div>');
+    
     return markup.join('');
 }
- 
+
+ViewBuilder.prototype.parseStation = function(stationNode)
+{
+    // <station> currently has no attributes
+    
+    var markup = ['<table class="table"><tbody><tr>'];
+    markup.push(this.parseChildren(stationNode));
+    markup.push('</tr></tbody></table>');
+    
+    return markup.join('');
+}
+
+ViewBuilder.prototype.parseCommand = function(commandNode)
+{
+    // <command> tag has attributes:
+    //  - name
+    //  - action (optional, may be templated; it is in {primary, default, success, info, warning, danger})
+    //  - description (optional, may be templated)
+    //  - hintglyph (optional, may be templated)
+    
+    var name = $(commandNode).attr('name');
+    
+    var nameScope = this.getCurrentNameScope();
+    
+    var fullName = this.composeName(nameScope, name);
+
+    var action = this.resolveAttr(nameScope, commandNode, 'action');
+    var description = this.resolveAttr(nameScope, commandNode, 'description');
+    var hintglyph = this.resolveAttr(nameScope, commandNode, 'hintglyph');
+
+    this.vars[fullName] = {type: 'command'};
+    
+    var markup = ['<td>'];
+    markup.push('<button class="btn ');
+    
+    if(action)
+    {
+        markup.push('btn-' + action);    
+    }
+    else
+    {
+        markup.push('btn-default');    
+    }
+    
+    markup.push('" id="');
+    markup.push(fullName);
+    markup.push('">');
+    
+    if(hintglyph)
+    {
+        markup.push('<span class="glyphicon ');
+        markup.push(hintglyph);
+        markup.push('" aria-hidden="true"></span>')
+    }
+    
+    if(description)
+    {
+        markup.push(' ' + description);
+    }
+    
+    markup.push('</button></td>');
+    
+    return markup.join('');
+}
+
 //------------------------------------------------------------------------------
 
 ViewBuilder.prototype.onInputChange = function(evt)
@@ -796,11 +882,43 @@ ViewBuilder.prototype.onInputChange = function(evt)
     }
     
     // to do check range and hold syntax errors
+}
+
+ViewBuilder.prototype.onCommand = function(evt)
+{
+    // evt.data is {thisObject, id, entry}
     
-    if(obj.controller)
+    // call entry.value.proc(entry.value.context) as callback  
+    
+    var entry = evt.data.entry;
+    
+    if(entry.value && entry.value.proc)
     {
-        obj.controller.notify({reason: 'changed', id: id, entry: entry});
+        entry.value.proc(entry.value.context);
     }
+}
+
+ViewBuilder.prototype.onCollectionItemSelect = function(evt)
+{
+    // evt.data is {thisObject, id, entry}
+    
+    // call entry.value.proc(selectedItemIndex, entry.value.context) as callback      
+
+    var id = evt.data.id;
+    var entry = evt.data.entry;
+
+    $('#' + id).children().each((index, item) => 
+    {
+        if(item === evt.target)
+        {
+            if(entry.value && entry.value.proc)
+            {
+                entry.value.proc(index, entry.value.context);
+                
+                return false;
+            }
+        }
+    });
 }
 
 ViewBuilder.prototype.setHandlers = function(keys)
@@ -848,9 +966,37 @@ ViewBuilder.prototype.removeHandlers = function(keys)
 
 ViewBuilder.prototype.updateInput = function(key, value, entry)
 {
-    entry.value = value;
-    
     $('#' + key).val(value);
+}
+
+ViewBuilder.prototype.updateCollection = function(key, value, entry)
+{
+    var collectionNode = $('#' + key);
+    
+    if(value.collection !== undefined)
+    {
+        var markup = [];
+        
+        value.collection.forEach(item => 
+        {
+            /*
+            markup.push('<li class="list-group-item">');
+            markup.push(item);
+            markup.push('</li>');
+            */
+            
+            markup.push('<button type="button" class="list-group-item">');
+            markup.push(item);
+            markup.push('</button>');
+            
+        });
+        
+        collectionNode.html(markup.join(''));
+    }
+    else
+    {
+        collectionNode.html('');
+    }
 }
 
 ViewBuilder.prototype.update = function(key, value)
@@ -866,6 +1012,55 @@ ViewBuilder.prototype.update = function(key, value)
             updateEntry(key, value, entry);
         }
     }
+}
+
+//------------------------------------------------------------------------------
+
+ViewBuilder.prototype.buildModelProperties = function(model)
+{
+    Object.keys(this.vars).forEach(key => 
+    {
+        var entry = this.vars[key];
+        
+        if(typeof(entry) === 'object')
+        {
+            var nameParts = key.split(this.nameInfix);
+            
+            var lastPartIndex = nameParts.length - 1;
+            
+            var obj = model;
+            
+            for(var i = 0; i < nameParts.length; ++i)
+            {
+                var part = nameParts[i];
+                
+                if(i < lastPartIndex)
+                {
+                    if(obj[part] === undefined)
+                    {
+                        obj[part] = {}; 
+                    }
+                        
+                    obj = obj[part];    
+                }
+                else
+                {
+                    Object.defineProperty(obj, part, 
+                    {
+                        get: () => 
+                        {
+                            return this.vars[key].value;
+                        },
+                        set: value => 
+                        {
+                            this.vars[key].value = value; 
+                            this.update(key, value);
+                        } 
+                    });
+                }
+            }
+        }    
+    });     
 }
 
 //------------------------------------------------------------------------------
