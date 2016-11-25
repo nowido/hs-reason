@@ -17,7 +17,9 @@ function ViewBuilder(idTemplate, idMountPoint)
         'STRING': this.parseString.bind(this),
         'COLLECTION': this.parseCollection.bind(this),
         'STATION': this.parseStation.bind(this),
-        'COMMAND': this.parseCommand.bind(this)
+        'COMMAND': this.parseCommand.bind(this),
+        'STATUS': this.parseStatus.bind(this),
+        'INDICATOR': this.parseIndicator.bind(this)
     };
     
     this.eventHandlers = 
@@ -36,7 +38,15 @@ function ViewBuilder(idTemplate, idMountPoint)
         'int': this.updateInput, 
         'float': this.updateInput, 
         'bool': this.updateInput,
-        'collection': this.updateCollection
+        'collection': this.updateCollection,
+        'indicator': this.updateIndicator
+    };
+    
+    this.castHandlers = 
+    {
+        'int' : this.castInt,
+        'float': this.castFloat,
+        'bool': this.castBool
     };
     
     this.vars = {};
@@ -102,14 +112,13 @@ ViewBuilder.prototype.composeName = function(nameScope, name)
     }
     else
     {
-        //return nameScope + '_' + name;
         return nameScope + this.nameInfix + name;
     }
 }
 
 ViewBuilder.prototype.resolveValue = function(nameScope, value, type)
 {
-    // "value", "{localvarname}", "{scoped.varname}"
+    // "value", "{localvarname}", "{scoped-nameInfix-varname}"
     
     var templated = /^\{.*\}$/.test(value);
     
@@ -117,7 +126,6 @@ ViewBuilder.prototype.resolveValue = function(nameScope, value, type)
     {
         var varName = value.substring(1, value.length - 1);
         
-        //var global = /_/.test(varName);
         var global = this.rexNameInfix.test(varName);
 
         var resolvedName;
@@ -142,13 +150,13 @@ ViewBuilder.prototype.resolveValue = function(nameScope, value, type)
     return value;
 }
 
-ViewBuilder.prototype.resolveAttr = function(nameScope, node, attribute)
+ViewBuilder.prototype.resolveAttr = function(nameScope, node, attribute, type)
 {
     var attrValue = $(node).attr(attribute);
     
     if(attrValue !== undefined)
     {
-        return this.resolveValue(nameScope, attrValue);
+        return this.resolveValue(nameScope, attrValue, type);
     }
     else
     {
@@ -156,26 +164,43 @@ ViewBuilder.prototype.resolveAttr = function(nameScope, node, attribute)
     }
 }
 
+//------------------------------------------------------------------------------
+
+ViewBuilder.prototype.castBool = function(value)
+{
+    return (value === 'true') ? true : false;
+}
+
+ViewBuilder.prototype.castInt = function(value)
+{
+    var tryInt = parseInt(value);
+    
+    return isNaN(tryInt) ? undefined : tryInt;
+}
+
+ViewBuilder.prototype.castFloat = function(value)
+{
+    var tryFloat = parseFloat(value);
+    
+    return isNaN(parseFloat(value)) ? undefined : tryFloat; 
+}
+
 ViewBuilder.prototype.cast = function(value, type)
 {
     if(typeof(value) === 'string')
     {
-        if(type === 'bool')
+        var handler = this.castHandlers[type];
+        
+        if(handler)
         {
-            value = ((value === 'true') ? true : false);
-        }
-        else if(type === 'float')
-        {
-            value = parseFloat(value);    
-        }
-        else if(type === 'int')
-        {
-            value = parseInt(value);        
+            return handler(value);
         }
     }
     
     return value;
 }
+
+//------------------------------------------------------------------------------
 
 ViewBuilder.prototype.isReference = function(node, nameScope)
 {
@@ -511,8 +536,8 @@ ViewBuilder.prototype.parseBool = function(boolNode)
     
     var bin = 
     [
-        {boolSemantic: 'true', tag: 'yes', checked: value}, 
-        {boolSemantic: 'false', tag: 'no', checked: !value}
+        {boolSemantic: true, tag: 'yes', checked: value}, 
+        {boolSemantic: false, tag: 'no', checked: !value}
     ];
             
     bin.forEach(bv => 
@@ -520,13 +545,10 @@ ViewBuilder.prototype.parseBool = function(boolNode)
         markup.push('<label class="radio-inline"><input type="radio" name="');
         markup.push(groupName);
         markup.push('"');    
-
-        if(bv.boolSemantic === 'true')
-        {
-            markup.push(' id="');
-            markup.push(fullName);
-            markup.push('"'); 
-        }
+        
+        markup.push(' id="');
+        markup.push(fullName + (bv.boolSemantic ? '' : 'false'));
+        markup.push('"');
 
         if(bv.checked)
         {
@@ -776,17 +798,12 @@ ViewBuilder.prototype.parseCollection = function(collectionNode)
     {
         entry.reference = true;
     }
-    /*
+    
     var markup = ['<ul class="list-group" id="'];
     
     markup.push(fullName);
     markup.push('"></ul>');
-    */
-    
-    var markup = ['<div class="list-group" id="'];
-    markup.push(fullName);
-    markup.push('"></div>');
-    
+
     return markup.join('');
 }
 
@@ -794,9 +811,9 @@ ViewBuilder.prototype.parseStation = function(stationNode)
 {
     // <station> currently has no attributes
     
-    var markup = ['<table class="table"><tbody><tr>'];
+    var markup = ['<table class="table table-condensed"><tr>'];
     markup.push(this.parseChildren(stationNode));
-    markup.push('</tr></tbody></table>');
+    markup.push('</tr></table>');
     
     return markup.join('');
 }
@@ -805,7 +822,7 @@ ViewBuilder.prototype.parseCommand = function(commandNode)
 {
     // <command> tag has attributes:
     //  - name
-    //  - action (optional, may be templated; it is in {primary, default, success, info, warning, danger})
+    //  - category (optional, may be templated; it is in {primary, default, success, info, warning, danger})
     //  - description (optional, may be templated)
     //  - hintglyph (optional, may be templated)
     
@@ -815,7 +832,7 @@ ViewBuilder.prototype.parseCommand = function(commandNode)
     
     var fullName = this.composeName(nameScope, name);
 
-    var action = this.resolveAttr(nameScope, commandNode, 'action');
+    var category = this.resolveAttr(nameScope, commandNode, 'category');
     var description = this.resolveAttr(nameScope, commandNode, 'description');
     var hintglyph = this.resolveAttr(nameScope, commandNode, 'hintglyph');
 
@@ -824,9 +841,9 @@ ViewBuilder.prototype.parseCommand = function(commandNode)
     var markup = ['<td>'];
     markup.push('<button class="btn ');
     
-    if(action)
+    if(category)
     {
-        markup.push('btn-' + action);    
+        markup.push('btn-' + category);    
     }
     else
     {
@@ -854,6 +871,74 @@ ViewBuilder.prototype.parseCommand = function(commandNode)
     return markup.join('');
 }
 
+ViewBuilder.prototype.parseIndicator = function(indicatorNode)
+{
+    // <indicator> tag has attributes:
+    //  - name
+    //  - category (optional, may be templated; it is in {primary, default, success, info, warning, danger})
+    //  - label (optional, may be templated)
+    //  - hintglyph (optional, may be templated)
+    
+    var name = $(indicatorNode).attr('name');
+    
+    var nameScope = this.getCurrentNameScope();
+    
+    var fullName = this.composeName(nameScope, name);
+
+    var category = this.resolveAttr(nameScope, indicatorNode, 'category');
+    var label = this.resolveAttr(nameScope, indicatorNode, 'label');
+    var hintglyph = this.resolveAttr(nameScope, indicatorNode, 'hintglyph');
+
+    this.vars[fullName] = {type: 'indicator', value: {category: category, label: label, hintglyph: hintglyph}};
+    
+    var markup = ['<td><p>'];
+    markup.push('<span class="');
+    
+    if(category)
+    {
+        markup.push('text-' + category);
+    }
+    else
+    {
+        markup.push('text-default');    
+    }
+    
+    markup.push('" id="');
+    markup.push(fullName);
+    markup.push('">');
+    
+    if(hintglyph)
+    {
+        markup.push('<span class="glyphicon ');
+        markup.push(hintglyph);
+        markup.push('" aria-hidden="true" id="');
+        markup.push(fullName);
+        markup.push('hintglyph"></span>');
+    }
+    
+    if(label)
+    {
+        markup.push('<span id="');
+        markup.push(fullName);
+        markup.push('label">');
+        markup.push(label);
+        markup.push('</span>');
+    }
+    
+    markup.push('</span></p></td>');
+    
+    return markup.join('');
+}
+
+ViewBuilder.prototype.parseStatus = function(statusNode)
+{
+    var markup = ['<nav class="navbar navbar-default navbar-fixed-bottom"><div class="container" role="status"><div class="row"><div class="col-md-12">'];    
+    markup.push(this.parseChildren(statusNode));
+    markup.push('</div></div></div></nav>');
+    
+    return markup.join('');
+}
+
 //------------------------------------------------------------------------------
 
 ViewBuilder.prototype.onInputChange = function(evt)
@@ -863,25 +948,19 @@ ViewBuilder.prototype.onInputChange = function(evt)
     var obj = evt.data.thisObject;
     var id = evt.data.id;
     var entry = evt.data.entry;
-
-    if(entry.type === 'string')
-    {
-        entry.value = $('#' + id).val();    
-    }
-    else if(entry.type === 'int')
-    {
-        entry.value = parseInt($('#' + id).val());
-    }
-    else if(entry.type === 'float')
-    {
-        entry.value = parseFloat($('#' + id).val());
-    }
-    else if(entry.type === 'bool')
-    {
-        entry.value = $('#' + id).prop('checked');
-    }
     
-    // to do check range and hold syntax errors
+    var elementNode = $('#' + id);
+    
+    if(entry.type === 'bool')
+    {
+        entry.value = elementNode.prop('checked');
+    }
+    else
+    {
+        entry.value = obj.cast(elementNode.val(), entry.type);
+        
+        // to do check range and hold syntax errors
+    }
 }
 
 ViewBuilder.prototype.onCommand = function(evt)
@@ -906,19 +985,28 @@ ViewBuilder.prototype.onCollectionItemSelect = function(evt)
 
     var id = evt.data.id;
     var entry = evt.data.entry;
-
+    
+    var selectedItemIndex = -1;
+        
     $('#' + id).children().each((index, item) => 
     {
-        if(item === evt.target)
+        var selected = (item === evt.target);
+        
+        if(selected)
         {
-            if(entry.value && entry.value.proc)
-            {
-                entry.value.proc(index, entry.value.context);
-                
-                return false;
-            }
+            selectedItemIndex = index;
         }
+
+        $(item).toggleClass("active", selected);
     });
+    
+    if(selectedItemIndex >= 0)
+    {
+        if(entry.value && entry.value.proc)
+        {
+            entry.value.proc(selectedItemIndex, entry.value.context);
+        }
+    }
 }
 
 ViewBuilder.prototype.setHandlers = function(keys)
@@ -966,7 +1054,19 @@ ViewBuilder.prototype.removeHandlers = function(keys)
 
 ViewBuilder.prototype.updateInput = function(key, value, entry)
 {
-    $('#' + key).val(value);
+    var elementNode = $('#' + key);
+    
+    if(entry.type === 'bool')
+    {
+        var sibling = $('#' + key + 'false');
+        
+        elementNode.prop('checked', value); 
+        sibling.prop('checked', !value);
+    }
+    else
+    {
+        elementNode.val(value);
+    }
 }
 
 ViewBuilder.prototype.updateCollection = function(key, value, entry)
@@ -979,16 +1079,9 @@ ViewBuilder.prototype.updateCollection = function(key, value, entry)
         
         value.collection.forEach(item => 
         {
-            /*
             markup.push('<li class="list-group-item">');
             markup.push(item);
             markup.push('</li>');
-            */
-            
-            markup.push('<button type="button" class="list-group-item">');
-            markup.push(item);
-            markup.push('</button>');
-            
         });
         
         collectionNode.html(markup.join(''));
@@ -997,6 +1090,52 @@ ViewBuilder.prototype.updateCollection = function(key, value, entry)
     {
         collectionNode.html('');
     }
+}
+
+ViewBuilder.prototype.updateIndicator = function(key, value, entry)
+{
+    var indicatorNode = $('#' + key);
+    
+    var category = value.category;
+    var hintglyph = value.hintglyph;
+    var label = value.label;
+    
+    var markup = ['<span class="'];
+
+    if(category)
+    {
+        markup.push('text-' + category);
+    }
+    else
+    {
+        markup.push('text-default');    
+    }
+    
+    markup.push('" id="');
+    markup.push(key);
+    markup.push('">');
+    
+    if(hintglyph)
+    {
+        markup.push('<span class="glyphicon ');
+        markup.push(hintglyph);
+        markup.push('" aria-hidden="true" id="');
+        markup.push(key);
+        markup.push('hintglyph"></span>');
+    }
+    
+    if(label)
+    {
+        markup.push('<span id="');
+        markup.push(key);
+        markup.push('label">');
+        markup.push(label);
+        markup.push('</span>');
+    }
+    
+    markup.push('</span>');
+    
+    indicatorNode.replaceWith(markup.join(''));
 }
 
 ViewBuilder.prototype.update = function(key, value)
@@ -1016,7 +1155,7 @@ ViewBuilder.prototype.update = function(key, value)
 
 //------------------------------------------------------------------------------
 
-ViewBuilder.prototype.buildModelProperties = function(model)
+ViewBuilder.prototype.buildViewProperties = function(model)
 {
     Object.keys(this.vars).forEach(key => 
     {
