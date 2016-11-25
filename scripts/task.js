@@ -51,23 +51,81 @@ Model.prototype.getDataFilesList = function()
             collectionEntry.collection = listNames;
             
             entry.tasksList = collectionEntry;
+            
+            if(listNames.length > 0)
+            {
+                entry.generalInfo = 
+                {
+                    category: 'success',
+                    label: listNames.length + ' task items loaded'
+                };
+            }
+            else
+            {
+                entry.generalInfo = 
+                {
+                    category: 'warning',
+                    label: 'no task items present at the moment'
+                };
+            }
         })
         .catch(errContext => 
         {
-            // to do assign to info field, view will update automatically
+            entry.generalInfo = 
+            {
+                category: 'danger',
+                label: errContext.message.error
+            };
         });
+}
+
+Model.prototype.composeDataBulk = function()
+{
+    var taskToEdit = this.taskToEdit;
+    
+    var modelData = 
+    {
+        yAmplitude: taskToEdit.yAmplitude,
+        ySeparator: taskToEdit.ySeparator,
+        clusterizationRadius: taskToEdit.clusterizationRadius,
+        qFactor: taskToEdit.qFactor,
+        anfisRulesCount: taskToEdit.anfisRulesCount,
+        adaptiveAnfisRulesCount: taskToEdit.adaptiveAnfisRulesCount,
+        lbfgsIterationsCount: taskToEdit.lbfgsIterationsCount,
+        lbfgsHistorySize: taskToEdit.lbfgsHistorySize,
+        lbfgsReportStepsCount: taskToEdit.lbfgsReportStepsCount,
+        acceptableErrorThreshold: taskToEdit.acceptableErrorThreshold,
+        acceptableModelsTargetToken: taskToEdit.acceptableModelsTargetToken,
+        bestModelTargetToken: taskToEdit.bestModelTargetToken
+    };
+    
+    return modelData;
+}
+
+Model.prototype.connect = function()
+{
+    this.connectionStatus =         
+    {
+        category: "success",
+        label: " connected",
+        hintglyph: "glyphicon-signal"
+    };
+}
+
+Model.prototype.disconnect = function()
+{
+    this.connectionStatus =         
+    {
+        category: "warning",
+        label: " disconnected",
+        hintglyph: "glyphicon-plane"
+    };
 }
 
 //------------------------------------------------------------------------------
 
-function main(commander)
+function main(commander, model, viewBuilder)
 {
-    var viewBuilder = new ViewBuilder('mainViewModel', 'mountPoint');
-    
-    var model = new Model(commander);
-    
-    viewBuilder.buildModelProperties(model);
-    
     model.actionSubmit = 
     {
     proc: context => 
@@ -75,16 +133,23 @@ function main(commander)
                 alert(context);    
             },
     context: '12345'
-    }
+    };
+    
+    model.actionReset = 
+    {
+    proc: () => 
+        {
+            console.log(model.composeDataBulk());
+        }    
+    };
     
     model.tasksList = 
     {
-    proc: (index, context) => 
+    proc: index => 
             {
-                alert(index + ', ' + context);    
-            },
-    context: '12345'
-    }
+                model.taskToEdit.adaptiveAnfisRulesCount = (index % 2 === 0);
+            }
+    };
     
     model.getDataFilesList();
 }
@@ -99,25 +164,27 @@ $(document).ready(() =>
     
     var commander = new AsyncCommander(socket, channel);
     
-    var connectionStatusLabel = $('#connectionStatusLabel');
+    var viewBuilder = new ViewBuilder('mainViewModel', 'mountPoint');
     
-    connectionStatusLabel.addClass('label-danger').html('connecting...');
+    var model = new Model(commander);
     
+    viewBuilder.buildViewProperties(model);
+
     socket.on('connect', () =>
     {
-        connectionStatusLabel.toggleClass('label-danger label-success').html('connected');
+        model.connect();
            
         if(!started)
         {
             started = true;
             
-            main(commander);
+            main(commander, model, viewBuilder);
         }
     });
     
     socket.on('disconnect', reason =>
     {
-        connectionStatusLabel.toggleClass('label-success label-danger').html('disconnected');   
+        model.disconnect();
     });
     
     socket.on(channel, message =>
