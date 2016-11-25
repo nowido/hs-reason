@@ -120,17 +120,17 @@
                 <station>
                     
                     <command    name="actionSubmit"
-                                action="primary"
+                                category="primary"
                                 description="Submit"
                                 hintglyph="glyphicon-cloud-upload"></command>
                     
                     <command    name="actionReset"
-                                action="default"
+                                category="default"
                                 description="Reset"
                                 hintglyph="glyphicon-home"></command>
 
                     <command    name="actionDelete"
-                                action="danger"
+                                category="danger"
                                 description="Delete"
                                 hintglyph="glyphicon-trash"></command>
                 </station>
@@ -140,19 +140,25 @@
         </grailmain>
         
         <grailfooter>
-            
+            <header  title="">
+            </header>
+            <header  title="">
+            </header>
         </grailfooter>
         
     </grail>
     
     <status>
-        
-        <indicator name="connectionStatus">
-        </indicator>
-        
-        <infoline name="generalInfo">
-        </infoline>
-        
+        <station>
+            
+            <indicator  name="connectionStatus"
+                        category="danger"
+                        label="connecting..."></indicator>
+            
+            <indicator  name="generalInfo"
+                        category="default"></indicator>
+            
+        </station>
     </status>
 </viewmodel></template>
 
@@ -160,22 +166,3 @@
     
 </div>
 
-
-    <!-- status area -->
-    <nav class="navbar bg-info navbar-fixed-bottom">
-        
-        <div class="container" role="status">
-            <div class="row">
-                
-                <div class="col-md-2">
-                    <h4><span class="label" id="connectionStatusLabel"></span></h4>
-                </div>
-                
-                <div class="col-md-10">
-                    <h4><span id="infoLabel"></span></h4>             
-                </div>
-            </div>
-        </div>
-        
-    </nav> <!-- end of status area -->
-</div>
