@@ -252,25 +252,24 @@ function implReadFile(args, yadStuff)
         delete args['asText'];
         
         implResourcesGeneral('GET', '/download', args, yadStuff)
-            .then(link => 
+        .then(link => 
+        {
+            var linkObj = JSON.parse(link);
+            
+            return implDownload(linkObj.href, asText);
+        })
+        .then(content => 
+        {
+            if(asText)
             {
-                var linkObj = JSON.parse(link);
-                
-                implDownload(linkObj.href, asText)
-                    .then(content => 
-                    {
-                        if(asText)
-                        {
-                            resolve(content)
-                        }
-                        else
-                        {
-                            resolve(base64.binToBase64(content));
-                        }
-                    })
-                    .catch(reject); 
-            })
-            .catch(reject);
+                resolve(content);
+            }
+            else
+            {
+                resolve(base64.binToBase64(content));
+            }
+        })
+        .catch(reject);
     });
 }
 
@@ -285,16 +284,15 @@ function implWriteFile(args, yadStuff)
         var data = asText ? args.content : base64.base64ToBin(args.content);
         
         implResourcesGeneral('GET', '/upload', args, yadStuff)
-            .then(link => 
-            {
-                var linkObj = JSON.parse(link);
-                
-                implUpload(linkObj.href, data)
-                    .then(resolve)
-                    .catch(reject); 
-            })
-            .catch(reject);
-    });
+        .then(link => 
+        {
+            var linkObj = JSON.parse(link);
+            
+            return implUpload(linkObj.href, data);
+        })
+        .then(resolve)
+        .catch(reject);
+    });    
 }
 
 //------------------------------------------------------------------------------
