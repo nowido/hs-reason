@@ -11,7 +11,7 @@ function implContentPromise(stream, asText)
     {
         stream.once('error', e => 
         { 
-            reject(e) 
+            reject(e); 
         });
 
     	stream.on('data', chunk => 
@@ -49,9 +49,11 @@ exports.file = (path, asText) => {
 
 function implCachedFilesPromise(registry)
 {
-    var files = registry.map(value => 
-    {
-        return implContentPromise(fs.createReadStream(value.path), value.mode === 'text');
+    var files = Object.keys(registry).map(key => 
+    {   
+        var entry = registry[key];
+        
+        return implContentPromise(fs.createReadStream(entry.path), entry.mode === 'text');
     });
     
     return Promise.all(files);
