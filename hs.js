@@ -31,17 +31,22 @@ var cachedFiles =
 {
     'jqgzip':       {mode: 'bin',   path: './jquery/jquery.js.gz'},
     'jqnogzip':     {mode: 'text',  path: './jquery/jquery.js'},
+    'nggzip':       {mode: 'bin',   path: './angular/angular.min.js.gz'},
+    'ngnogzip':     {mode: 'text',  path: './angular/angular.min.js'},
     'miscript':     {mode: 'text',  path: './scripts/master-injection.js'},
     'cliapis':      {mode: 'text',  path: './scripts/client-api.js'},
     'station':      {mode: 'text',  path : './scripts/station.js'},
     'task':         {mode: 'text',  path : './scripts/task.js'},
+    'taskng':       {mode: 'text',  path : './scripts/task-ng.js'},
     'pagestart':    {mode: 'text',  path : './pages-elements/pagestart'},
     'pagestation':  {mode: 'text',  path : './pages-elements/page-station.html'},
     'pagemi':       {mode: 'text',  path : './pages-elements/page-mi.html'},
     'pagetask':     {mode: 'text',  path : './pages-elements/page-task.html'},
+    'pagetaskng':   {mode: 'text',  path : './pages-elements/page-task-ng.html'},
     'pagend1':      {mode: 'text',  path : './pages-elements/pagend-1'},
     'pagend2':      {mode: 'text',  path : './pages-elements/pagend-2'},
     'pagendnosio':  {mode: 'text',  path : './pages-elements/pagend-nosio'},
+    'pagendngbs':   {mode: 'text',  path : './pages-elements/pagend-ngbs'},
     'bscssgzip':    {mode: 'bin',   path : './bootstrap/css/bootstrap.min.css.gz'},
     'bscssnogzip':  {mode: 'text',  path : './bootstrap/css/bootstrap.min.css'},
     'bsjsgzip':     {mode: 'bin',   path : './bootstrap/js/bootstrap.min.js.gz'},
@@ -88,6 +93,11 @@ var staticMap =
     {
         'gz': {contentType: ctTextGz, contentId: 'jqgzip'}, 
         'nogzip': {contentType: ctText, contentId: 'jqnogzip'}
+    },
+    'ngmap':
+    {
+        'gz': {contentType: ctTextGz, contentId: 'nggzip'},
+        'nogzip': {contentType: ctText, contentId: 'ngnogzip'}
     },
     'bscssmap':
     {
@@ -145,6 +155,7 @@ function serveComposedPages(req, res)
 //------------------------------------------------------------------------------
 
 exapp.get('/jquery.js', serveStatic.bind(staticMap['jqmap']));
+exapp.get('/angular.js', serveStatic.bind(staticMap['ngmap']));
 exapp.get('/css/bootstrap.min.css', serveStatic.bind(staticMap['bscssmap']));
 exapp.get('/js/bootstrap.min.js', serveStatic.bind(staticMap['bsjsmap']));
 exapp.get('/fonts/glyphicons-halflings-regular.svg', serveStatic.bind(staticMap['bsfontsvgmap']));
@@ -159,6 +170,7 @@ exapp.get('/fonts/glyphicons-halflings-regular.eot', serveStatic2.bind(staticMap
 exapp.get('/', serveComposedPages.bind({index: 'stationpagecomp'}));
 exapp.get('/mi', serveComposedPages.bind({index: 'mipagecomp'}));
 exapp.get('/task', serveComposedPages.bind({index: 'taskpagecomp'}));
+exapp.get('/taskng', serveComposedPages.bind({index: 'taskngpagecomp'}));
 
 //------------------------------------------------------------------------------
 
@@ -215,7 +227,7 @@ var asyncInitializationPhases =
                 console.log('cached ' + entry.path + ' (' + content.length + ' bytes)');
             });
         })
-        .catch(logErr),
+        .catch(e => {return Promise.reject(e);}),
         
     redis.init(redisUrl, redisToken, logErr)
         .then(client => 
@@ -224,7 +236,7 @@ var asyncInitializationPhases =
             
             console.log('Redis connected OK');
         })
-        .catch(logErr)
+        .catch(e => {return Promise.reject(e);})
 ];
 
 Promise.all(asyncInitializationPhases).then(() => 
@@ -256,10 +268,25 @@ Promise.all(asyncInitializationPhases).then(() =>
         cachedFiles['vmbuilderbs'].content + '\n' +
         cachedFiles['task'].content + '\n' +
         cachedFiles['pagend2'].content;
+
+    composedPages['taskngpagecomp'] = 
+        cachedFiles['pagestart'].content +
+        cachedFiles['pagetaskng'].content +
+        cachedFiles['pagendngbs'].content + 
+        cachedFiles['cliapis'].content + '\n' +
+        cachedFiles['taskng'].content + '\n' +
+        cachedFiles['pagend2'].content;
     
     server.listen(process.env.PORT);
     
     console.log('Server is running');
+})
+.catch(e => 
+{
+    logErr(e);
+    logErr('Can not start server. Exiting.');
+    
+    process.exit(-1);
 });
 
 //------------------------------------------------------------------------------
