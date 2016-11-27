@@ -1,0 +1,386 @@
+<div class="container" role="main" ng-controller="MainController as vm" id="mainContainer">
+    
+    <div class="row collapse" id="mainRow">
+        <div class="col-md-12">
+            
+            <!-- Grail Header -->
+            <div class="page-header">
+                <h1>
+                    {{::vm.pageCaption}}    
+                </h1>
+            </div>
+            
+            <div class="row">
+                
+                <!-- Grail Left -->
+                <div class="col-md-4">
+                    
+                    <div class="panel panel-primary">
+                        <div class="panel-heading">
+                            <h3 class="panel-title">
+                                {{::vm.leftPanelCaption}}
+                            </h3>
+                        </div>    
+                        <div class="panel-body">
+                            <ul class="list-group">
+                                <li ng-class="vm.getTaskListItemClass($index)" 
+                                    ng-repeat="tf in vm.taskFiles track by $index" 
+                                    ng-click="vm.selectTaskFile($index)">{{tf}}</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                </div>    
+                
+                <!-- Grail Main -->    
+                <div class="col-md-8">
+                    
+                    <div class="panel panel-primary">
+                        <div class="panel-heading">
+                            <h3 class="panel-title">
+                                {{::vm.mainPanelCaption}}
+                            </h3>
+                        </div>   
+                        <div class="panel-body">
+                            
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>{{::vm.fieldsCaption}}</th>
+                                        <th>{{::vm.valuesCaption}}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    
+                                    <!-- Train data file -->
+                                    <tr>
+                                        <td>{{::vm.trainDataFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <button 
+                                                    class="btn btn-default" 
+                                                    aria-label="{{::vm.trainDataAriaLabel}}">
+                                                    <span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span>    
+                                                </button>
+                                                <span class="help-block" ng-show="vm.trainDataPath">[{{vm.trainDataPath}}]</span>    
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Test data file -->
+                                    <tr>
+                                        <td>{{::vm.testDataFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <button 
+                                                    class="btn btn-default" 
+                                                    aria-label="{{::vm.testDataAriaLabel}}">
+                                                    <span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span>    
+                                                </button>
+                                                <span class="help-block" ng-show="vm.testDataPath">[{{vm.testDataPath}}]</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Y Amplitude -->
+                                    <tr>
+                                        <td>{{::vm.yAmplitudeFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-adjust" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number" 
+                                                        aria-label="{{::vm.yAmplitudeAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.yAmplitudeMin}}"
+                                                        step="{{::vm.yAmplitudeStep}}"
+                                                        placeholder="{{::vm.caution}}"
+                                                        ng-model="vm.yAmplitude">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Y Separator -->
+                                    <tr>
+                                        <td>{{::vm.ySeparatorFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-adjust" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number" 
+                                                        aria-label="{{::vm.ySeparatorAriaLabel}}"
+                                                        class="form-control"
+                                                        step="{{::vm.ySeparatorStep}}"
+                                                        placeholder="{{::vm.caution}}"
+                                                        ng-model="vm.ySeparator">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Clusterization radius -->
+                                    <tr>
+                                        <td>{{::vm.clusterizationRadiusFieldCaption}}</td>   
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-record" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number" 
+                                                        aria-label="{{::vm.clusterizationRadiusAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.clusterizationRadiusMin}}"
+                                                        step="{{::vm.clusterizationRadiusStep}}"
+                                                        placeholder="{{::vm.caution}}"
+                                                        ng-model="vm.clusterizationRadius">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Q Factor -->
+                                    <tr>
+                                        <td>{{::vm.qFactorFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-scale" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number" 
+                                                        aria-label="{{::vm.qFactorAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.qFactorMin}}"
+                                                        step="{{::vm.qFactorStep}}"
+                                                        placeholder="{{::vm.caution}}"
+                                                        ng-model="vm.qFactor">
+                                            </div>
+                                        </td>    
+                                    </tr>
+                                    
+                                    <!-- ANFIS rules count -->
+                                    <tr>
+                                        <td>{{::vm.anfisRulesCountFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-option-vertical" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number" 
+                                                        aria-label="{{::vm.anfisRulesCountAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.anfisRulesCountMin}}"
+                                                        step="{{::vm.anfisRulesCountStep}}"
+                                                        placeholder="{{::vm.caution}}"
+                                                        ng-model="vm.anfisRulesCount">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Adaptive ANFIS rules count -->
+                                    <tr>
+                                        <td>{{::vm.adaptiveAnfisRulesCountFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group" aria-label="{{::vm.adaptiveAnfisRulesCountAriaLabel}}">
+                                                <label class="radio-inline">
+                                                    <input  type="radio" ng-model="vm.adaptiveAnfisRulesCount" ng-value="vm.trueValue">
+                                                    yes
+                                                </label>
+                                                <label class="radio-inline">
+                                                    <input type="radio" ng-model="vm.adaptiveAnfisRulesCount" ng-value="!vm.trueValue">
+                                                    no
+                                                </label>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- L-BFGS iterations count -->
+                                    <tr>
+                                        <td>{{::vm.lbfgsIterationsCountFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-hourglass" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number"
+                                                        aria-label="{{::vm.lbfgsIterationsCountAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.lbfgsIterationsCountMin}}"
+                                                        step="{{::vm.lbfgsIterationsCountStep}}"
+                                                        placeholder="{{::vm.caution}}"
+                                                        ng-model="vm.lbfgsIterationsCount">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- L-BFGS history size -->
+                                    <tr>
+                                        <td>{{::vm.lbfgsHistorySizeFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number"
+                                                        aria-label="{{::lbfgsHistorySizeAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.lbfgsHistorySizeMin}}"
+                                                        step="{{::vm.lbfgsHistorySizeStep}}"
+                                                        placeholder="~10-20; greater is slower"
+                                                        ng-model="vm.lbfgsHistorySize">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- L-BFGS report steps count -->
+                                    <tr>
+                                        <td>{{::vm.lbfgsReportStepsCountFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-dashboard" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number"
+                                                        aria-label="{{::vm.lbfgsReportStepsCountAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.lbfgsReportStepsCountMin}}"
+                                                        step="{{::vm.lbfgsReportStepsCountStep}}"
+                                                        placeholder="low values will populate your logs faster"
+                                                        ng-model="vm.lbfgsReportStepsCount">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Acceptable error threshold -->
+                                    <tr>
+                                        <td>{{::vm.acceptableErrorThresholdFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-filter" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="number"
+                                                        aria-label="{{::vm.acceptableErrorThresholdAriaLabel}}"
+                                                        class="form-control"
+                                                        min="{{::vm.acceptableErrorThresholdMin}}"
+                                                        max="{{::vm.acceptableErrorThresholdMax}}"
+                                                        step="{{::vm.acceptableErrorThresholdStep}}"
+                                                        placeholder="0.5 is very bad; lower is better"
+                                                        ng-model="vm.acceptableErrorThreshold">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Acceptable models target token -->
+                                    <tr>
+                                        <td>{{::vm.acceptableModelsTargetTokenFieldCaption}}</td>    
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-random" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="text"
+                                                        aria-label="{{::vm.acceptableModelsTargetTokenAriaLabel}}"
+                                                        class="form-control"
+                                                        placeholder="{{vm.invent}}"
+                                                        ng-model="vm.acceptableModelsTargetToken">
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Best model target token -->
+                                    <tr>
+                                        <td>{{::vm.bestModelTargetTokenFieldCaption}}</td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-addon">
+                                                    <span class="glyphicon glyphicon-random" aria-hidden="true"></span>
+                                                </span>
+                                                <input  type="text"
+                                                        aria-label="{{::vm.bestModelTargetTokenAriaLabel}}"
+                                                        class="form-control"
+                                                        placeholder="{{vm.invent}}"
+                                                        ng-model="vm.bestModelTargetToken">
+                                        </td>
+                                    </tr>
+                                    
+                                </tbody>
+                            </table>
+                                
+                        </div>
+                    </div> <!-- end Entity panel -->
+                    
+                    <!-- buttons station -->
+                    <div class="row">
+                        
+                        <!-- submit -->
+                        <div class="col-md-2">
+                            
+                            <button class="btn btn-primary" 
+                                    aria-label="{{::vm.submitButtonAriaLabel}}"
+                                    ng-click="vm.submitTask()">
+                                <span>
+                                    <span class="glyphicon glyphicon-cloud-upload" aria-hidden="true">
+                                    </span> {{::vm.submitButtonCaption}}</span>
+                            </button>
+                        </div>
+                        
+                        <!-- reset -->
+                        <div class="col-md-2 col-md-offset-1">
+                            
+                            <button class="btn btn-default" 
+                                    aria-label="{{::vm.resetButtonAriaLabel}}"
+                                    ng-click="vm.resetTask()">
+                                <span>
+                                    <span class="glyphicon glyphicon-home" aria-hidden="true">
+                                    </span> {{::vm.resetButtonCaption}}</span>
+                            </button>
+                        </div>
+
+                        <!-- delete -->
+                        <div class="col-md-2 col-md-offset-4">
+                            
+                            <button class="btn btn-danger" 
+                                    aria-label="{{::vm.deleteButtonAriaLabel}}"
+                                    ng-click="vm.deleteTask()"
+                                    ng-disabled="vm.selectedTaskItem < 0">
+                                <span>
+                                    <span class="glyphicon glyphicon-trash" aria-hidden="true">
+                                    </span> {{::vm.deleteButtonCaption}}</span>
+                            </button>
+                        </div>
+                        
+                    </div>
+                    
+                </div> <!-- end Grail Right col -->
+                
+            </div> <!-- end Grail Mid Line row -->
+            
+            <div class="page-header">
+                <h1></h1>
+            </div>
+            
+        </div>
+    </div>    
+   
+    <!-- Status -->
+    <nav class="nav navbar-inverse navbar-fixed-bottom" id="statusBlock" style="display: none;">
+        <div class="container" role="status">
+            <div class="row">
+                <div class="col-md-4">
+                    <h4>
+                        <span class="label" ng-class="vm.indicatorClass">
+                            <span ng-class="vm.indicatorGlyphClass" ng-show="vm.indicatorGlyphClass"></span>
+                            <span ng-show="vm.indicatorInfo">{{vm.indicatorInfo}}</span>
+                        </span>
+                    </h4>
+                </div>
+                <div class="col-md-8">
+                    <h4>
+                        <p ng-class="vm.infoClass">{{vm.info}}</p>
+                    </h4>
+                </div>
+            </div>   
+        </div>    
+    </nav>
+    
+</div>
