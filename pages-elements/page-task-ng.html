@@ -59,7 +59,8 @@
                                             <div class="input-group">
                                                 <button 
                                                     class="btn btn-default" 
-                                                    aria-label="{{::vm.trainDataAriaLabel}}">
+                                                    aria-label="{{::vm.trainDataAriaLabel}}"
+                                                    ng-click="vm.openYadTrain()">
                                                     <span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span>    
                                                 </button>
                                                 <span class="help-block" ng-show="vm.trainDataPath">[{{vm.trainDataPath}}]</span>    
@@ -74,7 +75,8 @@
                                             <div class="input-group">
                                                 <button 
                                                     class="btn btn-default" 
-                                                    aria-label="{{::vm.testDataAriaLabel}}">
+                                                    aria-label="{{::vm.testDataAriaLabel}}"
+                                                    ng-click="vm.openYadTest()">
                                                     <span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span>    
                                                 </button>
                                                 <span class="help-block" ng-show="vm.testDataPath">[{{vm.testDataPath}}]</span>
@@ -382,5 +384,54 @@
             </div>   
         </div>    
     </nav>
+    
+    <!-- YAD Navigator -->
+    <div class="modal" role="dialog" ng-controller="YadNavigatorController as yad" id="yadNavigatorContainer">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>    
+                    
+                    <h4 class="modal-title">{{::yad.title}}<span ng-show="yad.initialPath"> [{{yad.initialPath}}]</span></h4>
+                </div> <!-- end modal header -->
+                
+                <div class="modal-body">
+                    
+                    <div ng-show="yad.pages.length > 1">
+                        <h3>
+                        <span class="label label-default">{{::yad.pagesPrefix}}</span><span>&nbsp;</span>
+
+                        <button ng-class="yad.getPreviousPageClass()"
+                                aria-label="{{::yad.previousPageAriaLabel}}"
+                                ng-click="yad.activatePreviousPage()">
+                            <span aria-hidden="true">&laquo;</span>
+                        </button>  
+                        
+                        <button ng-class=yad.getPagerClass($index)
+                                ng-repeat="page in yad.pages track by $index"
+                                ng-click="yad.activatePage($index)">
+                            {{yad.getPageLabel($index)}}<span class="sr-only">{{yad.getPageAriaLabel($index)}}</span>
+                        </button>
+                        
+                        <button ng-class="yad.getNextPageClass()"
+                                aria-label="{{::yad.nextPageAriaLabel}}"
+                                ng-click="yad.activateNextPage()">
+                            <span aria-hidden="true">&raquo;</span>
+                        </button>  
+                        </h3>
+                    </div>
+                </div> <!-- end modal body -->
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="yad.selectFile()">{{::yad.buttonSelectCaption}}</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{{::yad.buttonCancelCaption}}</button>    
+                </div> <!-- end modal footer -->
+                
+            </div>
+        </div>    
+    </div>
     
 </div>
