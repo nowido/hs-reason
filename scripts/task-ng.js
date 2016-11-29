@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 
-function MainController($scope, socket, taskStorageService, modelDefaults)
+function MainController($scope, interService, socket, taskStorageService, modelDefaults)
 {
     var vm = this;
     
@@ -92,6 +92,26 @@ function MainController($scope, socket, taskStorageService, modelDefaults)
     vm.indicatorInfo = 'connecting...';
     vm.indicatorClass = 'label label-warning';
     
+    vm.openYadTrain = function()
+    {
+        interService.yad.promiseFilePath('/')
+        .then(filePath => 
+        {
+            vm.trainDataPath = filePath;
+            $scope.$apply();
+        })
+        .catch(() => 
+        {
+            vm.trainDataPath = undefined;
+            $scope.$apply();
+        });    
+    }
+
+    vm.openYadTest = function()
+    {
+        
+    }
+    
     vm.submitTask = function()
     {
         // if task file is not selected, ask name in modal (plus show json);
@@ -149,15 +169,15 @@ function MainController($scope, socket, taskStorageService, modelDefaults)
     
     socket.on('connect', () =>
     {
-        //vm.setIndicator('success', 'connected', 'glyphicon-signal');
-        vm.setIndicator('success', undefined, 'glyphicon-signal');
+        vm.setIndicator('success', 'connected', 'glyphicon-signal');
+        //vm.setIndicator('success', undefined, 'glyphicon-signal');
         $scope.$apply();
     });
     
     socket.on('disconnect', reason =>
     {
-        //vm.setIndicator('warning', 'disconnected [' + reason + ']', 'glyphicon-plane');
-        vm.setIndicator('warning', null, 'glyphicon-plane');
+        vm.setIndicator('warning', 'disconnected [' + reason + ']', 'glyphicon-plane');
+        //vm.setIndicator('warning', null, 'glyphicon-plane');
         $scope.$apply();
     });
     
@@ -233,6 +253,182 @@ function taskStorageService(commander)
 
 //------------------------------------------------------------------------------
 
+function YadNavigatorController($scope, interService, yadBrowseService, elementId)
+{
+    var yad = this;
+    
+    interService.yad = yad;
+
+    yad.dialog = $('#' + elementId);
+    
+    yad.title = 'Select file';
+    yad.buttonSelectCaption = 'Select';
+    yad.buttonCancelCaption = 'Cancel';
+    yad.pagesPrefix = 'pages: ';
+    
+    yad.previousPageAriaLabel = 'Previous';
+    yad.nextPageAriaLabel = 'Next';
+    
+    yad.pageItemsCountLimit = 4;
+    
+    yad.promiseFilePath = function(scope)
+    {
+        yad.initialPath = scope;
+
+        return new Promise((resolve, reject) => 
+        {
+            yad.dialog.on('hidden.bs.modal', () => 
+            {
+                if(yad.selectedPath && (yad.selectedPath.length > 0))
+                {
+                    resolve(yad.selectedPath);    
+                }
+                else
+                {
+                    reject();
+                }
+            });
+            
+            yadBrowseService.promiseFilesList(scope, yad.pageItemsCountLimit, 0)
+            .then(folderContent => 
+            {
+                if(folderContent._embedded && folderContent._embedded.total)
+                {
+                    // calc how many pages, create nav buttons collection,
+                    // create first page files list
+                    
+                    yad.pagesCount = Math.ceil(folderContent._embedded.total / yad.pageItemsCountLimit);
+                    
+                    yad.pages = new Array(yad.pagesCount);
+                    yad.activePage = 0;
+                    
+                    $scope.$apply();
+                    
+                    yad.dialog.modal('show');
+                }
+                else
+                {
+                    reject();    
+                }
+            })
+            .catch(reject); 
+        });
+    }
+    
+    yad.selectFile = function()
+    {
+        yad.selectedPath = '123';
+
+        yad.dialog.modal('hide');
+    }
+    
+    yad.getPageLabel = function(index)
+    {
+        return index + 1;    
+    }
+    
+    yad.getPreviousPageClass = function()
+    {
+        return (yad.activePage === 0) ? 'btn btn-default disabled' : 'btn btn-default';
+    }
+
+    yad.getNextPageClass = function()
+    {
+        return (yad.activePage === (yad.pagesCount - 1)) ? 'btn btn-default disabled' : 'btn btn-default';    
+    }
+    
+    yad.getPagerClass = function(index)
+    {
+        return (index === yad.activePage) ? 'btn btn-primary' : 'btn btn-default';
+    }
+    
+    yad.getPageAriaLabel = function(index)
+    {
+        return (index === yad.activePage) ? 'current page' : ('page ' + (index + 1));
+    }
+    
+    yad.activatePreviousPage = function()
+    {
+        if(yad.activePage > 0)
+        {
+            yad.activePage--;
+            
+            yad.readCurrentPage();
+        }    
+    }
+
+    yad.activateNextPage = function()
+    {
+        if(yad.activePage < (yad.pagesCount - 1))
+        {
+            yad.activePage++;
+            
+            yad.readCurrentPage();
+        }    
+    }
+
+    yad.activatePage = function(index)
+    {
+        if(yad.activePage !== index)
+        {
+            yad.activePage = index;    
+            
+            yad.readCurrentPage();
+        }
+    }
+    
+    yad.readCurrentPage = function()
+    {
+        // to do read files of this page
+    }
+}
+
+//------------------------------------------------------------------------------
+
+function yadBrowseService(commander)
+{
+    var singleton = {commander: commander};
+    
+    singleton.promiseFilesList = function(scope, limit, offset)
+    {
+        var serviceEntry = this;
+        
+        return new Promise((resolve, reject) => 
+        {
+            var yadCommand = 
+            {
+                command: 'GETMETAINFO',
+                path: 'app:' + scope,
+                limit: limit,
+                offset: offset,
+                fields: '_embedded.items.name,_embedded.items.type,_embedded.total,name'
+            };
+            
+            serviceEntry.commander.promiseCommand('YAD', yadCommand)
+            .then(responseContext => 
+            {
+                var listObject = JSON.parse(responseContext.message.answer);
+                
+                resolve(listObject);
+            })
+            .catch(reject);
+        });
+    }.bind(singleton);
+    
+    return singleton;    
+}
+
+//------------------------------------------------------------------------------
+
+function interService()
+{
+    var singleton = {};
+    
+    return singleton;
+}
+
+//------------------------------------------------------------------------------
+
 $(document).ready(() =>
 {
     var socket = io.connect();        
@@ -259,16 +455,34 @@ $(document).ready(() =>
         'acceptableErrorThreshold': 0.25
     };
     
-    angular
-        .module('taskPreparationTool', [])
+    angular.module('taskPreparationTool', [])
         .value('socket', socket)
         .value('commander', commander)
         .value('modelDefaults', modelDefaults)
+        .value('yadNavigatorElementId', 'yadNavigatorContainer')
         .service('taskStorageService', ['commander', taskStorageService])
-        .controller('MainController', ['$scope', 'socket', 'taskStorageService', 'modelDefaults', MainController]);
-    
+        .service('interService', interService)
+        .service('yadBrowseService', ['commander', yadBrowseService])
+        .controller('MainController',     
+        [
+            '$scope', 
+            'interService',
+            'socket', 
+            'taskStorageService', 
+            'modelDefaults', 
+            MainController
+        ])
+        .controller('YadNavigatorController', 
+        [
+            '$scope', 
+            'interService',
+            'yadBrowseService', 
+            'yadNavigatorElementId', 
+            YadNavigatorController
+        ]);
+        
     angular.bootstrap($('#mainContainer')[0], ['taskPreparationTool']);
-
+    
     $('#mainRow').toggleClass('collapse', false);
     $('#statusBlock').css('display', 'block');
 });
