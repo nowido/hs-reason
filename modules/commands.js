@@ -11,26 +11,26 @@ function implCreateCommandsRegistry(channel, redis, yad)
         'REDIS' : (args, reason, socket) =>
         {
             redis.sendCommand(args[0], args.slice(1))
-                .then(reply => 
-                {
-                    socket.emit(channel, {reason: reason, answer: reply});    
-                })
-                .catch(err => 
-                {
-                    socket.emit(channel, {reason: reason, error: err});
-                });
+            .then(reply => 
+            {
+                socket.emit(channel, {reason: reason, answer: reply});    
+            })
+            .catch(err => 
+            {
+                socket.emit(channel, {reason: reason, error: err});
+            });
         },
         'YAD' : (args, reason, socket) => 
         {
             yad.executeCommand(args)
-                .then(reply => 
-                {
-                    socket.emit(channel, {reason: reason, answer: reply});    
-                })
-                .catch(err => 
-                {
-                    socket.emit(channel, {reason: reason, error: err});
-                });
+            .then(reply => 
+            {
+                socket.emit(channel, {reason: reason, answer: reply});    
+            })
+            .catch(err => 
+            {
+                socket.emit(channel, {reason: reason, error: err});
+            });
         }
     };
     
