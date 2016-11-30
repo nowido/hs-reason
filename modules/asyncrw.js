@@ -4,11 +4,11 @@ var fs = require('fs');
 
 function implContentPromise(stream, asText)
 {
-	var contentChunks = [];
-	var length = 0;
-    
     return new Promise((resolve, reject) => 
     {
+    	var contentChunks = [];
+    	var length = 0;
+        
         stream.once('error', e => 
         { 
             reject(e); 
@@ -38,12 +38,16 @@ function implContentPromise(stream, asText)
     });    
 }
 
-exports.content = implContentPromise;
+function implFileContentPromise(path, asText)
+{
+    return Promise.resolve(path).then(fs.createReadStream).then(stream => 
+    {
+        return implContentPromise(stream, asText);
+    });
+}
 
-exports.file = (path, asText) => { 
-    
-    return implContentPromise(fs.createReadStream(path), asText); 
-};
+exports.content = implContentPromise;
+exports.file = implFileContentPromise;
 
 //------------------------------------------------------------------------------
 
@@ -53,7 +57,7 @@ function implCachedFilesPromise(registry)
     {   
         var entry = registry[key];
         
-        return implContentPromise(fs.createReadStream(entry.path), entry.mode === 'text');
+        return implFileContentPromise(entry.path, entry.mode === 'text');
     });
     
     return Promise.all(files);
