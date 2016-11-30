@@ -317,7 +317,7 @@
                         <!-- submit -->
                         <div class="col-md-2">
                             
-                            <button class="btn btn-primary" 
+                            <button ng-class="vm.getSubmitButtonClass()" 
                                     aria-label="{{::vm.submitButtonAriaLabel}}"
                                     ng-click="vm.submitTask()">
                                 <span>
@@ -365,7 +365,7 @@
     </div>    
    
     <!-- Status -->
-    <nav class="nav navbar-inverse navbar-fixed-bottom" id="statusBlock" style="display: none;">
+    <nav class="nav navbar-default navbar-fixed-bottom" id="statusBlock" style="display: none;">
         <div class="container" role="status">
             <div class="row">
                 <div class="col-md-4">
@@ -395,39 +395,80 @@
                         <span aria-hidden="true">&times;</span>
                     </button>    
                     
-                    <h4 class="modal-title">{{::yad.title}}<span ng-show="yad.initialPath"> [{{yad.initialPath}}]</span></h4>
+                    <h4 class="modal-title">{{::yad.title}} - {{yad.scope}}</h4>
                 </div> <!-- end modal header -->
                 
                 <div class="modal-body">
                     
-                    <div ng-show="yad.pages.length > 1">
-                        <h3>
-                        <span class="label label-default">{{::yad.pagesPrefix}}</span><span>&nbsp;</span>
-
-                        <button ng-class="yad.getPreviousPageClass()"
-                                aria-label="{{::yad.previousPageAriaLabel}}"
-                                ng-click="yad.activatePreviousPage()">
-                            <span aria-hidden="true">&laquo;</span>
-                        </button>  
+                    <ul class="list-group" aria-label="{{::yad.fileItemsAriaLabel}}">
+                        <li ng-class="yad.getListItemClass($index)"
+                            ng-repeat="item in yad.fileItems track by $index"
+                            ng-click="yad.activateItem($index)">
+                            <span   ng-class="yad.getItemGlyph($index)" 
+                                    aria-label="{{yad.getItemAriaLabel($index)}}"></span>
+                            <span>&nbsp;</span>        
+                            {{item.name}}
+                        </li>
+                    </ul>
+                    
+                    <div class="row">
                         
-                        <button ng-class=yad.getPagerClass($index)
-                                ng-repeat="page in yad.pages track by $index"
-                                ng-click="yad.activatePage($index)">
-                            {{yad.getPageLabel($index)}}<span class="sr-only">{{yad.getPageAriaLabel($index)}}</span>
-                        </button>
+                        <!-- folder up -->
+                        <div class="col-md-2">
+                            
+                            <button ng-class="yad.getUpButtonClass()" 
+                                    aria-label="{{::yad.folderUpAriaLabel}}"
+                                    ng-click="yad.goLevelUp()">
+                                <h3>    
+                                <span class="glyphicon glyphicon-level-up" aria-hidden="true"></span>
+                                </h3>    
+                            </button>
+                            
+                        </div> <!-- end folder up -->
                         
-                        <button ng-class="yad.getNextPageClass()"
-                                aria-label="{{::yad.nextPageAriaLabel}}"
-                                ng-click="yad.activateNextPage()">
-                            <span aria-hidden="true">&raquo;</span>
-                        </button>  
-                        </h3>
+                        <!-- pager -->
+                        <div class="col-md-10">
+                            <div ng-show="yad.pages.length > 1">
+                                <h4>
+                                <span class="label label-default">{{::yad.pagesPrefix}}</span><span>&nbsp;</span>
+        
+                                <button ng-class="yad.getPreviousPageClass()"
+                                        aria-label="{{::yad.previousPageAriaLabel}}"
+                                        ng-click="yad.activatePreviousPage()">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </button>  
+                                
+                                <button ng-class=yad.getPagerClass($index)
+                                        ng-repeat="page in yad.pages track by $index"
+                                        ng-click="yad.activatePage($index)">
+                                    {{yad.getPageLabel($index)}}<span class="sr-only">{{yad.getPageAriaLabel($index)}}</span>
+                                </button>
+                                
+                                <button ng-class="yad.getNextPageClass()"
+                                        aria-label="{{::yad.nextPageAriaLabel}}"
+                                        ng-click="yad.activateNextPage()">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </button>  
+                                </h4>
+                            </div>
+                        </div> <!-- end pager -->
+                        
                     </div>
+                    
                 </div> <!-- end modal body -->
                 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="yad.selectFile()">{{::yad.buttonSelectCaption}}</button>
-                    <button type="button" class="btn btn-default" data-dismiss="modal">{{::yad.buttonCancelCaption}}</button>    
+                    
+                    <button type="button" 
+                            aria-label="{{::yad.buttonSelectAriaLabel}}"
+                            ng-class="yad.getSelectButtonClass()" 
+                            ng-click="yad.selectFile()">{{::yad.buttonSelectCaption}}</button>
+                            
+                    <button type="button" 
+                            aria-label="{{::yad.buttonCancelAriaLabel}}"
+                            class="btn btn-default" 
+                            data-dismiss="modal">{{::yad.buttonCancelCaption}}</button>    
+                            
                 </div> <!-- end modal footer -->
                 
             </div>
