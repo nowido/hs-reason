@@ -36,12 +36,10 @@ var cachedFiles =
     'miscript':     {mode: 'text',  path: './scripts/master-injection.js'},
     'cliapis':      {mode: 'text',  path: './scripts/client-api.js'},
     'station':      {mode: 'text',  path : './scripts/station.js'},
-    'task':         {mode: 'text',  path : './scripts/task.js'},
     'taskng':       {mode: 'text',  path : './scripts/task-ng.js'},
     'pagestart':    {mode: 'text',  path : './pages-elements/pagestart'},
     'pagestation':  {mode: 'text',  path : './pages-elements/page-station.html'},
     'pagemi':       {mode: 'text',  path : './pages-elements/page-mi.html'},
-    'pagetask':     {mode: 'text',  path : './pages-elements/page-task.html'},
     'pagetaskng':   {mode: 'text',  path : './pages-elements/page-task-ng.html'},
     'pagend1':      {mode: 'text',  path : './pages-elements/pagend-1'},
     'pagend2':      {mode: 'text',  path : './pages-elements/pagend-2'},
@@ -56,9 +54,10 @@ var cachedFiles =
     'bsfonttf':     {mode: 'bin',   path : './bootstrap/fonts/glyphicons-halflings-regular.ttf'},
     'bsfontsvgzip': {mode: 'bin',   path : './bootstrap/fonts/glyphicons-halflings-regular.svg.gz'},
     'bsfontsvg':    {mode: 'text',  path : './bootstrap/fonts/glyphicons-halflings-regular.svg'},
-    'bsfonteot':    {mode: 'bin',   path : './bootstrap/fonts/glyphicons-halflings-regular.eot'},
-    'vmbuilderbs':  {mode: 'text',  path : './scripts/vmbuilder-bs.js'}
+    'bsfonteot':    {mode: 'bin',   path : './bootstrap/fonts/glyphicons-halflings-regular.eot'}
 };
+
+var totalCachedSize = 0;
 
 //------------------------------------------------------------------------------
 
@@ -169,7 +168,6 @@ exapp.get('/fonts/glyphicons-halflings-regular.eot', serveStatic2.bind(staticMap
 
 exapp.get('/', serveComposedPages.bind({index: 'stationpagecomp'}));
 exapp.get('/mi', serveComposedPages.bind({index: 'mipagecomp'}));
-exapp.get('/task', serveComposedPages.bind({index: 'taskpagecomp'}));
 exapp.get('/taskng', serveComposedPages.bind({index: 'taskngpagecomp'}));
 
 //------------------------------------------------------------------------------
@@ -214,32 +212,35 @@ function logErr(err)
 
 var asyncInitializationPhases = 
 [
-    asyncrw.cached(cachedFiles)
-        .then(files => 
-        {
-            var keys = Object.keys(cachedFiles);
-            
-            files.forEach((content, index) => 
-            {
-                var entry = cachedFiles[keys[index]];
-                entry.content = content;
-                
-                console.log('cached ' + entry.path + ' (' + content.length + ' bytes)');
-            });
-        })
-        .catch(e => {return Promise.reject(e);}),
+    asyncrw
+    .cached(cachedFiles)
+    .then(files => 
+    {
+        var keys = Object.keys(cachedFiles);
         
-    redis.init(redisUrl, redisToken, logErr)
-        .then(client => 
+        files.forEach((content, index) => 
         {
-            redisClient = client;
+            var entry = cachedFiles[keys[index]];
+            entry.content = content;
             
-            console.log('Redis connected OK');
-        })
-        .catch(e => {return Promise.reject(e);})
+            totalCachedSize += content.length;
+            
+            console.log('cached ' + entry.path + ' (' + content.length + ' bytes)');
+        });
+    }),
+        
+    redis
+    .init(redisUrl, redisToken, logErr)
+    .then(client => 
+    {
+        redisClient = client;
+        
+        console.log('Redis connected OK');
+    })
 ];
 
-Promise.all(asyncInitializationPhases).then(() => 
+Promise.all(asyncInitializationPhases)
+.then(() => 
 {
     var commandsRegistry = commands.init(channel, redisClient, yad);
     
@@ -252,6 +253,8 @@ Promise.all(asyncInitializationPhases).then(() =>
         cachedFiles['miscript'].content + '\n' +
         cachedFiles['pagend2'].content;
     
+    totalCachedSize += composedPages['mipagecomp'].length;
+    
     composedPages['stationpagecomp'] = 
         cachedFiles['pagestart'].content +
         cachedFiles['pagestation'].content +
@@ -260,15 +263,8 @@ Promise.all(asyncInitializationPhases).then(() =>
         cachedFiles['station'].content + '\n' +
         cachedFiles['pagend2'].content;
 
-    composedPages['taskpagecomp'] = 
-        cachedFiles['pagestart'].content +
-        cachedFiles['pagetask'].content +
-        cachedFiles['pagend1'].content + 
-        cachedFiles['cliapis'].content + '\n' +
-        cachedFiles['vmbuilderbs'].content + '\n' +
-        cachedFiles['task'].content + '\n' +
-        cachedFiles['pagend2'].content;
-
+    totalCachedSize += composedPages['stationpagecomp'].length;
+    
     composedPages['taskngpagecomp'] = 
         cachedFiles['pagestart'].content +
         cachedFiles['pagetaskng'].content +
@@ -277,7 +273,11 @@ Promise.all(asyncInitializationPhases).then(() =>
         cachedFiles['taskng'].content + '\n' +
         cachedFiles['pagend2'].content;
     
+    totalCachedSize += composedPages['taskngpagecomp'].length;
+    
     server.listen(process.env.PORT);
+ 
+    console.log('Total cached and ready to serve: ' + totalCachedSize + ' bytes');
     
     console.log('Server is running');
 })
