@@ -26,8 +26,16 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     
     vm.pageCaption = 'Task preparation tool';
     
-    vm.leftPanelCaption = 'Current tasks';
+    vm.leftPanelCaption = 'System tasks';
     vm.mainPanelCaption = 'Task to edit';
+    
+    vm.taskGroupAriaLabel = 'Open task file or create new task';
+    
+    vm.newTaskTokenLabel = 'New task token:';
+    vm.newTaskTokenAriaLabel = 'Invent name for the new task';
+    
+    vm.openTaskButtonCaption = 'Open ...';
+    vm.newTaskButtonCaption = 'New';
     
     vm.fieldsCaption = 'Fields';
     vm.valuesCaption = 'Values';
@@ -105,10 +113,42 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     vm.deleteButtonCaption = 'Delete task';
     vm.deleteButtonAriaLabel = 'Remove task from storage';
     
-    vm.taskFiles = ['loading ...'];
-
     vm.indicatorInfo = 'connecting...';
     vm.indicatorClass = 'label label-warning';
+    
+    vm.openTask = function()
+    {
+        interService.yad.promiseFilePath(modelDefaults.taskFilesScope)
+        .then(filePath => 
+        {
+            vm.taskFile = filePath;
+            vm.newTask = undefined;
+            
+            taskStorageService.promiseTaskContent(filePath)
+            .then(content => 
+            {
+                console.log(content);
+                
+                // to do use content object to fill vm fields
+                
+                $scope.$apply();    
+            })
+            .catch(e => 
+            {
+                vm.setInfo('danger', e);
+                
+                $scope.$apply();    
+            });
+        })
+        .catch(e => {});
+    }
+    
+    vm.createNewTask = function()
+    {
+        vm.taskFile = undefined;
+        vm.newTask = null;
+        vm.resetTask();
+    }
     
     vm.openYadTrain = function()
     {
@@ -117,7 +157,8 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         {
             vm.trainDataPath = filePath;
             $scope.$apply();
-        });
+        })
+        .catch(e => {});
     }
 
     vm.openYadTest = function()
@@ -127,7 +168,8 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         {
             vm.testDataPath = filePath;
             $scope.$apply();
-        });
+        })
+        .catch(e => {});
     }
     
     vm.getSubmitButtonClass = function()
@@ -141,7 +183,7 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     {
         vm.composeModel();
         
-        // if task file is not selected, ask name in modal (plus show json);
+        // if task file is not selected, and no task token present, ask name in modal (plus show json);
         //  else overwrite existing file
     }
     
@@ -173,6 +215,8 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     
     vm.resetTask = function()
     {
+        vm.trainDataPath = undefined;
+        vm.testDataPath = undefined;
         vm.yAmplitude = modelDefaults.yAmplitude;
         vm.ySeparator = modelDefaults.ySeparator;
         vm.clusterizationRadius = modelDefaults.clusterizationRadius;
@@ -206,20 +250,6 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         vm.infoClass = 'text-' + category;
     }
     
-    vm.selectedTaskItem = -1;
-    
-    vm.selectTaskFile = function(index)
-    {
-        vm.selectedTaskItem = index;
-    }
-    
-    vm.getTaskListItemClass = function(index)
-    {
-        return (index === vm.selectedTaskItem) ? 
-                'list-group-item active' : 
-                'list-group-item';
-    }
-    
     socket.on('connect', () =>
     {
         vm.setIndicator('success', 'connected', 'glyphicon-signal');
@@ -235,66 +265,49 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     });
     
     vm.resetTask();
-    
-    taskStorageService.promiseTaskFilesList()
-    .then(fileNames => 
-    {
-        vm.taskFiles = fileNames;
-        
-        vm.setInfo('info', fileNames.length + ' task files retrieved');
-        
-        $scope.$apply();
-    })
-    .catch(e => 
-    {
-        vm.setInfo('danger', 'Error occured while retrieving task files list');
-        
-        $scope.$apply();
-    });
 }
 
 //------------------------------------------------------------------------------
 
-function taskStorageService(commander)
+function taskStorageService(yadStorage)
 {
-    this.commander = commander;
+    this.yadStorage = yadStorage;
 }
 
-taskStorageService.prototype.promiseTaskFilesList = function()
+taskStorageService.prototype.promiseTaskContent = function(taskFilePath)
 {
-    return Promise.resolve(this.commander).then(this.promiseMetaInfo).then(this.promiseParseMetaInfo); 
-}
-
-taskStorageService.prototype.promiseMetaInfo = function(commander)
-{
-    var yadCommand = 
-    {
-        command: 'GETMETAINFO',
-        path: 'app:/csv',
-        limit: 100,
-        offset: 0,
-        fields: '_embedded.items.name,_embedded.total,name'
-    };
-
-    return commander.promiseCommand('YAD', yadCommand);
-}
-
-taskStorageService.prototype.promiseParseMetaInfo = function(responseContext)
-{
-    var listObject = JSON.parse(responseContext.message.answer);
+    var entry = this;
     
-    var fileNames;
-    
-    if(listObject._embedded && (listObject._embedded.total > 0))
-    {
-        fileNames = listObject._embedded.items.map(file => file.name);
-    }
-    else
-    {
-        fileNames = [];
-    }
+    return entry.yadStorage.asyncDownload('app:' + taskFilePath)
+            .then(entry.promiseTextContent)
+            .then(entry.promiseObjectContent);
+}
 
-    return Promise.resolve(fileNames);
+taskStorageService.prototype.promiseTextContent = function(blob)
+{
+    return new Promise((resolve, reject) => 
+    {
+        var reader = new FileReader();
+        
+        function getResult()
+        {
+            reader.removeEventListener('loadend', getResult);
+
+            resolve(reader.result);
+        }
+        
+        reader.addEventListener('loadend', getResult);
+        
+        reader.readAsText(blob);    
+    });
+}
+
+taskStorageService.prototype.promiseObjectContent = function(textJsonContent)
+{
+    return Promise.resolve().then(() => 
+    {
+        return Promise.resolve(JSON.parse(textJsonContent));
+    });    
 }
 
 //------------------------------------------------------------------------------
@@ -324,11 +337,12 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
     
     yad.folderUpAriaLabel = 'Navigate to parent folder';
     
-    yad.pageItemsCountLimit = 4;
+    yad.pageItemsCountLimit = 10;
     
     yad.promiseDialogSetup = function(folderContent)
     {
         yad.activePage = 0;
+        
         yad.activeItem = undefined;
         yad.pointedPath = undefined;
         
@@ -339,10 +353,6 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
             yad.pages = new Array(yad.pagesCount);
             
             yad.fileItems = folderContent._embedded.items;
-            
-            $scope.$apply();
-            
-            return Promise.resolve();
         }
         else
         {
@@ -351,11 +361,11 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
             yad.pages = [];
             
             yad.fileItems = [];
-            
-            $scope.$apply();
-
-            return Promise.reject();
         }
+        
+        $scope.$apply();
+        
+        return Promise.resolve();
     }
     
     yad.promiseDialogResult = function()
@@ -384,6 +394,8 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
         yad.scopeStack = [];
         
         yadBrowseService.clearCache();
+        
+        yad.selectedPath = undefined;
         
         var arg = 
         {
@@ -556,18 +568,6 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
         .then(yad.promiseDialogSetup);
     }
     
-    yad.getUpButtonClass = function()
-    {
-        if(yad.scopeStack && (yad.scopeStack.length > 0))
-        {
-            return 'btn btn-default';
-        }
-        else
-        {
-            return 'btn btn-default disabled';
-        }
-    }
-    
     yad.goLevelUp = function()
     {
         if(yad.scopeStack.length > 0)
@@ -637,7 +637,10 @@ yadBrowseService.prototype.promiseMetaInfo = function(arg)
 
 yadBrowseService.prototype.promiseParseMetaInfo = function(responseContext)
 {
-    return Promise.resolve(JSON.parse(responseContext.message.answer));
+    return Promise.resolve().then(() => 
+    {
+        return Promise.resolve(JSON.parse(responseContext.message.answer));
+    });
 }
 
 //------------------------------------------------------------------------------
@@ -667,6 +670,7 @@ $(document).ready(() =>
     
     var modelDefaults = 
     {
+        taskFilesScope: '/',//'/tasks/',
         trainDataScope : '/csv/',
         testDataScope : '/csv/',
         yAmplitude: 2,
@@ -685,7 +689,8 @@ $(document).ready(() =>
         .value('commander', commander)
         .value('modelDefaults', modelDefaults)
         .value('yadNavigatorElementId', 'yadNavigatorContainer')
-        .service('taskStorageService', ['commander', taskStorageService])
+        .service('yadStorageServise', ['commander', YadStorage])
+        .service('taskStorageService', ['yadStorageServise', taskStorageService])
         .service('interService', interService)
         .service('yadBrowseService', ['commander', yadBrowseService])
         .controller('MainController',     
