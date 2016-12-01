@@ -123,49 +123,37 @@ YadStorage.prototype.asyncDownload = function(path, onProgress)
 {
     var entry = this;
     
-    return new Promise((resolve, reject) => 
-    {
-        entry.commander.promiseCommand('YAD', {command: 'GETDOWNLOADURL', path: path})
+    return Promise.resolve(entry.commander.promiseCommand('YAD', {command: 'GETDOWNLOADURL', path: path}))
             .then(context => 
             {
                 var urlJson = context.message.answer;
                 
-                entry.promiseDownload(JSON.parse(urlJson), onProgress)
-                    .then(resolve)
-                    .catch(reject);
-            })
-            .catch(reject);    
-    });
+                return entry.promiseDownload(JSON.parse(urlJson), onProgress);
+            });
 }
 
 YadStorage.prototype.asyncUpload = function(path, content, overwrite, onProgress)
 {
     var entry = this;
-    
-    return new Promise((resolve, reject) => 
+
+    var yadCommand = 
     {
-        var yadCommand = 
-        {
-            command: 'GETUPLOADURL',    
-            path: path
-        };
-        
-        if(overwrite)
-        {
-            yadCommand.overwrite = true;
-        }
-        
-        entry.commander.promiseCommand('YAD', yadCommand)
+        command: 'GETUPLOADURL',    
+        path: path
+    };
+    
+    if(overwrite)
+    {
+        yadCommand.overwrite = true;
+    }
+    
+    return Promise.resolve(entry.commander.promiseCommand('YAD', yadCommand))
             .then(context => 
             {
                 var urlJson = context.message.answer;
                 
-                entry.promiseUpload(JSON.parse(urlJson), content, onProgress)
-                    .then(resolve)
-                    .catch(reject);
-            })
-            .catch(reject);    
-    });
+                return entry.promiseUpload(JSON.parse(urlJson), content, onProgress)
+            });
 }
 
 YadStorage.prototype.promiseDownload = function(urlObject, onProgress)
