@@ -22,15 +22,56 @@
                             </h3>
                         </div>    
                         <div class="panel-body">
-                            <ul class="list-group">
-                                <li ng-class="vm.getTaskListItemClass($index)" 
-                                    ng-repeat="tf in vm.taskFiles track by $index" 
-                                    ng-click="vm.selectTaskFile($index)">{{tf}}</li>
-                            </ul>
-                        </div>
-                    </div>
+                            
+                            <div class="btn-group btn-group-justified" role="group" aria-label="{{vm.taskGroupAriaLabel}}">
+                                
+                                <div class="btn-group" role="group">
+                                    <button type="button" 
+                                            class="btn btn-default"
+                                            ng-click="vm.openTask()">
+                                        <span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span>
+                                        <span>&nbsp;</span>
+                                        {{vm.openTaskButtonCaption}}
+                                    </button>
+                                </div>
+                                
+                                <div class="btn-group" role="group">
+                                    <button type="button" 
+                                            class="btn btn-default"
+                                            ng-click="vm.createNewTask()">
+                                        <span class="glyphicon glyphicon-file" aria-hidden="true"></span>
+                                        <span>&nbsp;</span>
+                                        {{vm.newTaskButtonCaption}}
+                                    </button>
+                                </div>
+                                
+                            </div>  
+                            
+                            <h3></h3>
+                            
+                            <div ng-show="vm.taskFile">
+                                <h5><span class="text-info">{{vm.taskFile}}</span></h5>    
+                            </div>
+                            
+                            <div ng-show="vm.newTask !== undefined">
+                                <h5><label for="newTaskNameInputId" class="text-info">{{vm.newTaskTokenLabel}}</label></h5>
+                                <div class="input-group" >
+                                    <span class="input-group-addon">
+                                        <span class="glyphicon glyphicon-random" aria-hidden="true"></span>
+                                    </span>
+                                    <input  type="text"
+                                            aria-label="{{::vm.newTaskTokenAriaLabel}}"
+                                            class="form-control"
+                                            placeholder="{{vm.invent}}"
+                                            ng-model="vm.newTask"
+                                            id="newTaskNameInputId">
+                                </div>            
+                            </div>
+                            
+                        </div> <!-- end panel body -->
+                    </div> <!-- end panel -->
                     
-                </div>    
+                </div> <!-- end Grail Left -->    
                 
                 <!-- Grail Main -->    
                 <div class="col-md-8">
@@ -302,6 +343,7 @@
                                                         class="form-control"
                                                         placeholder="{{vm.invent}}"
                                                         ng-model="vm.bestModelTargetToken">
+                                            </div>            
                                         </td>
                                     </tr>
                                     
@@ -315,40 +357,49 @@
                     <div class="row">
                         
                         <!-- submit -->
-                        <div class="col-md-2">
-                            
-                            <button ng-class="vm.getSubmitButtonClass()" 
-                                    aria-label="{{::vm.submitButtonAriaLabel}}"
-                                    ng-click="vm.submitTask()">
-                                <span>
-                                    <span class="glyphicon glyphicon-cloud-upload" aria-hidden="true">
-                                    </span> {{::vm.submitButtonCaption}}</span>
-                            </button>
+                        <div class="col-md-3">
+                            <div class="btn-group btn-group-justified"  role="group">
+                                <div class="btn-group" role="group">
+                                    <button ng-class="vm.getSubmitButtonClass()" 
+                                            aria-label="{{::vm.submitButtonAriaLabel}}"
+                                            ng-click="vm.submitTask()">
+                                        <span>
+                                            <span class="glyphicon glyphicon-cloud-upload" aria-hidden="true">
+                                            </span> {{::vm.submitButtonCaption}}</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- reset -->
-                        <div class="col-md-2 col-md-offset-1">
-                            
-                            <button class="btn btn-default" 
-                                    aria-label="{{::vm.resetButtonAriaLabel}}"
-                                    ng-click="vm.resetTask()">
-                                <span>
-                                    <span class="glyphicon glyphicon-home" aria-hidden="true">
-                                    </span> {{::vm.resetButtonCaption}}</span>
-                            </button>
+                        <div class="col-md-3">
+                            <div class="btn-group btn-group-justified"  role="group">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-default" 
+                                            aria-label="{{::vm.resetButtonAriaLabel}}"
+                                            ng-click="vm.resetTask()">
+                                        <span>
+                                            <span class="glyphicon glyphicon-home" aria-hidden="true">
+                                            </span> {{::vm.resetButtonCaption}}</span>
+                                    </button>
+                                </div>    
+                            </div>
                         </div>
 
                         <!-- delete -->
-                        <div class="col-md-2 col-md-offset-4">
-                            
-                            <button class="btn btn-danger" 
-                                    aria-label="{{::vm.deleteButtonAriaLabel}}"
-                                    ng-click="vm.deleteTask()"
-                                    ng-disabled="vm.selectedTaskItem < 0">
-                                <span>
-                                    <span class="glyphicon glyphicon-trash" aria-hidden="true">
-                                    </span> {{::vm.deleteButtonCaption}}</span>
-                            </button>
+                        <div class="col-md-3 col-md-offset-3">
+                            <div class="btn-group btn-group-justified"  role="group">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-danger" 
+                                            aria-label="{{::vm.deleteButtonAriaLabel}}"
+                                            ng-click="vm.deleteTask()"
+                                            ng-disabled="!vm.taskFile">
+                                        <span>
+                                            <span class="glyphicon glyphicon-trash" aria-hidden="true">
+                                            </span> {{::vm.deleteButtonCaption}}</span>
+                                    </button>
+                                </div>    
+                            </div>
                         </div>
                         
                     </div>
@@ -414,14 +465,14 @@
                     <div class="row">
                         
                         <!-- folder up -->
-                        <div class="col-md-2">
+                        <div class="col-md-2" ng-show="yad.scopeStack && (yad.scopeStack.length > 0)">
                             
-                            <button ng-class="yad.getUpButtonClass()" 
+                            <button class="btn btn-default" 
                                     aria-label="{{::yad.folderUpAriaLabel}}"
                                     ng-click="yad.goLevelUp()">
-                                <h3>    
+                                <h4>    
                                 <span class="glyphicon glyphicon-level-up" aria-hidden="true"></span>
-                                </h3>    
+                                </h4>    
                             </button>
                             
                         </div> <!-- end folder up -->
@@ -430,7 +481,7 @@
                         <div class="col-md-10">
                             <div ng-show="yad.pages.length > 1">
                                 <h4>
-                                <span class="label label-default">{{::yad.pagesPrefix}}</span><span>&nbsp;</span>
+                                <span class="text-info">{{::yad.pagesPrefix}}</span><span>&nbsp;</span>
         
                                 <button ng-class="yad.getPreviousPageClass()"
                                         aria-label="{{::yad.previousPageAriaLabel}}"
