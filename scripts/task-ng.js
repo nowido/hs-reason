@@ -14,14 +14,12 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         ySeparator: modelDefaults.ySeparator,
         clusterizationRadius: modelDefaults.clusterizationRadius,
         qFactor: modelDefaults.qFactor,
-        anfisRulesCount: 5,
+        anfisRulesCount: modelDefaults.anfisRulesCount,
         adaptiveAnfisRulesCount: modelDefaults.adaptiveAnfisRulesCount,
         lbfgsIterationsCount: modelDefaults.lbfgsIterationsCount,
         lbfgsHistorySize: modelDefaults.lbfgsHistorySize,
         lbfgsReportStepsCount: modelDefaults.lbfgsReportStepsCount,
-        acceptableErrorThreshold: modelDefaults.acceptableErrorThreshold,
-        acceptableModelsTargetToken: generateUniqueKey(),
-        bestModelTargetToken: generateUniqueKey()
+        acceptableErrorThreshold: modelDefaults.acceptableErrorThreshold
     };
     
     vm.pageCaption = 'Task preparation tool';
@@ -104,13 +102,16 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     vm.bestModelTargetTokenFieldCaption = 'Best model target token';
     vm.bestModelTargetTokenAriaLabel = vm.bestModelTargetTokenFieldCaption;
     
-    vm.submitButtonCaption = 'Submit task';
+    vm.submitButtonCaption = 'Submit';
     vm.submitButtonAriaLabel = 'Submit task to storage';
 
-    vm.resetButtonCaption = 'Reset task';
+    vm.resetButtonCaption = 'Reset';
     vm.resetButtonAriaLabel = vm.resetButtonCaption;
 
-    vm.deleteButtonCaption = 'Delete task';
+    vm.analyseButtonCaption = 'Analyse';
+    vm.analyseButtonAriaLabel = vm.analyseButtonCaption;
+
+    vm.deleteButtonCaption = 'Delete';
     vm.deleteButtonAriaLabel = 'Remove task from storage';
     
     vm.indicatorInfo = 'connecting...';
@@ -125,22 +126,30 @@ function MainController($scope, interService, socket, taskStorageService, modelD
             vm.newTask = undefined;
             
             taskStorageService.promiseTaskContent(filePath)
-            .then(content => 
+            .then(taskObject => 
             {
-                console.log(content);
+                vm.useTaskObject(taskObject);
                 
-                // to do use content object to fill vm fields
+                vm.setInfo('info', 'Success: task [' + filePath + ']');
                 
                 $scope.$apply();    
             })
             .catch(e => 
             {
-                vm.setInfo('danger', e);
+                vm.setInfo('danger', 'Error: task [' + filePath + ']' + ', ' + e);
                 
                 $scope.$apply();    
             });
         })
         .catch(e => {});
+    }
+    
+    vm.useTaskObject = function(taskObject)
+    {
+        Object.keys(taskObject).forEach(key => 
+        {
+            vm[key] = taskObject[key];    
+        });
     }
     
     vm.createNewTask = function()
@@ -156,6 +165,7 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         .then(filePath => 
         {
             vm.trainDataPath = filePath;
+            
             $scope.$apply();
         })
         .catch(e => {});
@@ -167,50 +177,82 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         .then(filePath => 
         {
             vm.testDataPath = filePath;
+            
             $scope.$apply();
         })
         .catch(e => {});
     }
     
+    vm.dataSourcesPresent = function()
+    {
+        return vm.trainDataPath && vm.testDataPath;        
+    }
+    
     vm.getSubmitButtonClass = function()
     {
-        return (vm.trainDataPath && vm.testDataPath) ? 
+        return vm.dataSourcesPresent() ? 
                 'btn btn-primary' : 
                 'btn btn-primary disabled';
     }
     
+    vm.ensureTaskFilePath = function()
+    {
+        var path;
+        
+        if(vm.taskFile)
+        {
+            path = vm.taskFile;
+        }
+        else if(vm.newTask)
+        {
+            path = '/tasks/' + vm.newTask + '.json';
+        }
+        else
+        {
+            path = '/tasks/' + generateUniqueKey() + '.json';
+        }
+        
+        return path;
+    }
+    
     vm.submitTask = function()
     {
-        vm.composeModel();
-        
-        // if task file is not selected, and no task token present, ask name in modal (plus show json);
-        //  else overwrite existing file
+        if(vm.dataSourcesPresent())
+        {
+            var path = vm.ensureTaskFilePath();
+
+            var model = vm.composeModel();
+
+            taskStorageService.promiseSubmitTask(path, model, true).then(() => 
+            {
+                vm.setInfo('info', 'Task strored in ' + path);    
+                
+                $scope.$apply();
+            })
+            .catch(e => 
+            {
+                vm.setInfo('danger', 'Task was not strored! [' + path + '], ' + e);    
+                
+                $scope.$apply();
+            });
+        }
     }
     
     vm.composeModel = function()
     {
+        vm.modelPattern.acceptableModelsTargetToken = generateUniqueKey();
+        vm.modelPattern.bestModelTargetToken = generateUniqueKey();
+
         var model = {};
         
         Object.keys(vm.modelPattern).forEach(key => 
         {
             var editedFieldValue = vm[key];
             
-            if(editedFieldValue !== undefined)
-            {
-                if(typeof(editedFieldValue) === 'string')
-                {
-                    model[key] = (editedFieldValue !== '') ? editedFieldValue : vm.modelPattern[key];
-                }
-                else
-                {
-                    model[key] = editedFieldValue;
-                }
-            }
-            else
-            {
-                model[key] = vm.modelPattern[key];
-            }
+            model[key] = editedFieldValue ? editedFieldValue : vm.modelPattern[key];
         });
+        
+        return model;
     }
     
     vm.resetTask = function()
@@ -229,11 +271,42 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         vm.acceptableErrorThreshold = modelDefaults.acceptableErrorThreshold;
         vm.acceptableModelsTargetToken = modelDefaults.acceptableModelsTargetToken;
         vm.bestModelTargetToken = modelDefaults.bestModelTargetToken;
+        
+        vm.taskFile = undefined;
+    }
+    
+    vm.getAnalyseButtonClass = function()
+    {
+        return vm.dataSourcesPresent() ? 
+            'btn btn-warning' : 
+            'btn btn-warning disabled';
+    }
+    
+    vm.analyseTask = function()
+    {
+        // open dialog to examine data and clusterize    
     }
     
     vm.deleteTask = function()
     {
-        
+        if(vm.taskFile)
+        {
+            taskStorageService.promiseDeleteTask(vm.taskFile)
+            .then(() => 
+            {
+                vm.setInfo('info', 'Task [' + vm.taskFile + '] was deleted');    
+                
+                vm.taskFile = undefined;
+                
+                $scope.$apply();
+            })
+            .catch(e => 
+            {
+                vm.setInfo('danger', 'Task [' + vm.taskFile + '] was not deleted');    
+                
+                $scope.$apply();
+            });    
+        }
     }
     
     vm.setIndicator = function(category, info, glyph)
@@ -248,19 +321,27 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     {
         vm.info = info;
         vm.infoClass = 'text-' + category;
+        
+        setTimeout(() => 
+        {
+            vm.info = undefined;
+            
+            $scope.$apply();
+            
+        }, 2000);
     }
     
     socket.on('connect', () =>
     {
         vm.setIndicator('success', 'connected', 'glyphicon-signal');
-        //vm.setIndicator('success', undefined, 'glyphicon-signal');
+        
         $scope.$apply();
     });
     
     socket.on('disconnect', reason =>
     {
         vm.setIndicator('warning', 'disconnected [' + reason + ']', 'glyphicon-plane');
-        //vm.setIndicator('warning', null, 'glyphicon-plane');
+        
         $scope.$apply();
     });
     
@@ -281,6 +362,34 @@ taskStorageService.prototype.promiseTaskContent = function(taskFilePath)
     return entry.yadStorage.asyncDownload('app:' + taskFilePath)
             .then(entry.promiseTextContent)
             .then(entry.promiseObjectContent);
+}
+
+taskStorageService.prototype.promiseSubmitTask = function(taskFilePath, taskObject, overwrite)
+{
+    var entry = this;
+    
+    return Promise.resolve().then(() => 
+    {
+        var jsonTask = JSON.stringify(taskObject);
+        
+        return entry.yadStorage.asyncUpload('app:' + taskFilePath, jsonTask, overwrite);
+    });
+}
+
+taskStorageService.prototype.promiseDeleteTask = function(taskFilePath)
+{
+    var entry = this;
+    
+    return Promise.resolve().then(() => 
+    {
+        var yadCommand = 
+        {
+            command: 'DELETE',
+            path: 'app:' + taskFilePath
+        };
+        
+        return entry.yadStorage.commander.promiseCommand('YAD', yadCommand);
+    });
 }
 
 taskStorageService.prototype.promiseTextContent = function(blob)
@@ -535,6 +644,8 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
     
     yad.activateItem = function(index)
     {
+        yad.activeItem = index;
+        
         var entry = yad.fileItems[index];
         
         if(entry.type === 'dir')
@@ -547,7 +658,7 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
         }
         else
         {
-            yad.activeItem = index;
+            //yad.activeItem = index;
             
             yad.pointedPath = yad.scope + entry.name;
         }
@@ -677,6 +788,7 @@ $(document).ready(() =>
         ySeparator: 0,
         clusterizationRadius: 2.2,
         qFactor: 4,
+        anfisRulesCount: 5,
         adaptiveAnfisRulesCount: false,
         lbfgsIterationsCount: 1000,
         lbfgsHistorySize: 10,
