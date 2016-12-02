@@ -436,6 +436,9 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
     tan.buttonCloseCaption = 'Close';
     tan.buttonCloseAriaLabel = tan.buttonCloseCaption;
     
+    tan.trainDataDownloadProgressAriaLabel = 'Train dataset download progress';
+    tan.testDataDownloadProgressAriaLabel = 'Test dataset download progress';
+
     tan.analyseTask = function(taskModel)
     {
         tan.taskModel = taskModel;
@@ -447,24 +450,22 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
     
     tan.trainDataDownloadProgressCallback = function(evt)
     {
-        tan.trainDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
-        
         ++tan.trainProgressStep;
         
         if((tan.trainProgressStep % 5 === 0) || (evt.loaded === evt.total))
         {
+            tan.trainDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
             $scope.$apply();    
         }
     }
 
     tan.testDataDownloadProgressCallback = function(evt)
     {
-        tan.testDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
-        
         ++tan.testProgressStep;
            
         if((tan.testProgressStep % 5 === 0) || (evt.loaded === evt.total))
         {
+            tan.testDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
             $scope.$apply();    
         }
     }
@@ -476,17 +477,38 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
         
         tan.trainDataDownloadProgress = 0;
         tan.testDataDownloadProgress = 0;
-
+        
+        tan.phaseDownload = true;
+        tan.phaseAnalyse = false;
+        
         csvDataStorageService.promiseCsvData(tan.taskModel.trainDataPath, tan.trainDataDownloadProgressCallback)
-            .then(csvText => 
-            {
-                return csvDataStorageService.promiseCsvData(tan.taskModel.testDataPath, tan.testDataDownloadProgressCallback)
-            })
-            .then(csvText => 
-            {
-                // all csv data is ready
-            })
-            .catch(console.log);    
+        .then(csvDataStorageService.promiseRecordsArray) 
+        .then(records => 
+        {
+            tan.trainDataBulk = records;
+            
+            return csvDataStorageService.promiseCsvData(tan.taskModel.testDataPath, tan.testDataDownloadProgressCallback);
+        })
+        .then(csvDataStorageService.promiseRecordsArray)
+        .then(records => 
+        {
+            tan.testDataBulk = records;
+            
+            tan.metaData = 
+            [
+                ['Header present:', typeof(tan.trainDataBulk[0][0]) === 'string' ? 'yes' : 'no', typeof(tan.testDataBulk[0][0]) === 'string' ? 'yes' : 'no'],
+                ['Record count (including header):', tan.trainDataBulk.length, tan.testDataBulk.length], 
+                ['Record fields count (including Y):', tan.trainDataBulk[0].length, tan.testDataBulk[0].length], 
+                ['[Y = 0] records count:', 100, 200], 
+                ['[Y = 1] records count:', 1900, 1800]
+            ];
+            
+            tan.phaseDownload = false;
+            tan.phaseAnalyse = true;
+            
+            $scope.$apply();  
+        })
+        .catch(console.log);    
     }
 }
 
@@ -521,6 +543,32 @@ csvDataStorageService.prototype.promiseTextContent = function(blob)
         reader.addEventListener('loadend', getResult);
         
         reader.readAsText(blob);    
+    });
+}
+
+csvDataStorageService.prototype.promiseRecordsArray = function(csvContent)
+{
+    return Promise.resolve(csvContent).then(csv => 
+    {
+        var regular = csv.replace(/,/g, '.').split(/$\n/m);
+        
+        var dataRecords = [];
+    
+        for(var i = 0, length = regular.length; i < length; ++i)
+        {
+            var s = regular[i].replace(/;/g, ',').replace(/\s/g,'');
+            
+            if(s.length > 0)
+            {
+                var jsonRow = '[' + s + ']';
+                
+                var record = JSON.parse(jsonRow);
+                
+                dataRecords.push(record);
+            }
+        }
+        
+        return Promise.resolve(dataRecords)
     });
 }
 
