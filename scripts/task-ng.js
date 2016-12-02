@@ -156,7 +156,6 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     {
         vm.taskFile = undefined;
         vm.newTask = null;
-        vm.resetTask();
     }
     
     vm.openYadTrain = function()
@@ -284,7 +283,7 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     
     vm.analyseTask = function()
     {
-        // open dialog to examine data and clusterize    
+        interService.tan.analyseTask(vm.composeModel());
     }
     
     vm.deleteTask = function()
@@ -417,6 +416,112 @@ taskStorageService.prototype.promiseObjectContent = function(textJsonContent)
     {
         return Promise.resolve(JSON.parse(textJsonContent));
     });    
+}
+
+//------------------------------------------------------------------------------
+
+function TaskAnalysisController($scope, interService, csvDataStorageService, elementId)
+{
+    var tan = this;
+    
+    interService.tan = tan;
+    
+    tan.dialog = $('#' + elementId);
+    
+    tan.title = 'Task analysis tool';
+    
+    tan.trainDataDownloadHeader = 'Train dataset download:';
+    tan.testDataDownloadHeader = 'Test dataset download:';
+    
+    tan.buttonCloseCaption = 'Close';
+    tan.buttonCloseAriaLabel = tan.buttonCloseCaption;
+    
+    tan.analyseTask = function(taskModel)
+    {
+        tan.taskModel = taskModel;
+        
+        tan.dialog.on('shown.bs.modal', tan.downloadData);
+        
+        tan.dialog.modal('show');
+    }
+    
+    tan.trainDataDownloadProgressCallback = function(evt)
+    {
+        tan.trainDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
+        
+        ++tan.trainProgressStep;
+        
+        if((tan.trainProgressStep % 5 === 0) || (evt.loaded === evt.total))
+        {
+            $scope.$apply();    
+        }
+    }
+
+    tan.testDataDownloadProgressCallback = function(evt)
+    {
+        tan.testDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
+        
+        ++tan.testProgressStep;
+           
+        if((tan.testProgressStep % 5 === 0) || (evt.loaded === evt.total))
+        {
+            $scope.$apply();    
+        }
+    }
+    
+    tan.downloadData = function()
+    {
+        tan.trainProgressStep = 0;
+        tan.testProgressStep = 0;
+        
+        tan.trainDataDownloadProgress = 0;
+        tan.testDataDownloadProgress = 0;
+
+        csvDataStorageService.promiseCsvData(tan.taskModel.trainDataPath, tan.trainDataDownloadProgressCallback)
+            .then(csvText => 
+            {
+                return csvDataStorageService.promiseCsvData(tan.taskModel.testDataPath, tan.testDataDownloadProgressCallback)
+            })
+            .then(csvText => 
+            {
+                // all csv data is ready
+            })
+            .catch(console.log);    
+    }
+}
+
+//------------------------------------------------------------------------------
+
+function csvDataStorageService(yadStorage)
+{
+    this.yadStorage = yadStorage;
+}
+
+csvDataStorageService.prototype.promiseCsvData = function(csvFilePath, onProgress)
+{
+    var entry = this;
+    
+    return entry.yadStorage.asyncDownload('app:' + csvFilePath, onProgress)
+            .then(entry.promiseTextContent);
+}
+
+csvDataStorageService.prototype.promiseTextContent = function(blob)
+{
+    return new Promise((resolve, reject) => 
+    {
+        var reader = new FileReader();
+        
+        function getResult()
+        {
+            reader.removeEventListener('loadend', getResult);
+
+            resolve(reader.result);
+        }
+        
+        reader.addEventListener('loadend', getResult);
+        
+        reader.readAsText(blob);    
+    });
 }
 
 //------------------------------------------------------------------------------
@@ -609,15 +714,13 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
             if(pageContent._embedded && pageContent._embedded.items)
             {
                 yad.fileItems = pageContent._embedded.items;    
-                
-                $scope.$apply();
             }
             else
             {
                 yad.fileItems = [];
-                
-                $scope.$apply();
             }
+            
+             $scope.$apply();
         });
     }
     
@@ -658,8 +761,6 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
         }
         else
         {
-            //yad.activeItem = index;
-            
             yad.pointedPath = yad.scope + entry.name;
         }
     }
@@ -781,7 +882,7 @@ $(document).ready(() =>
     
     var modelDefaults = 
     {
-        taskFilesScope: '/',//'/tasks/',
+        taskFilesScope: '/tasks/',
         trainDataScope : '/csv/',
         testDataScope : '/csv/',
         yAmplitude: 2,
@@ -800,10 +901,12 @@ $(document).ready(() =>
         .value('socket', socket)
         .value('commander', commander)
         .value('modelDefaults', modelDefaults)
+        .value('taskAnalysisElementId', 'taskAnalysisContainer')
         .value('yadNavigatorElementId', 'yadNavigatorContainer')
+        .service('interService', interService)
         .service('yadStorageServise', ['commander', YadStorage])
         .service('taskStorageService', ['yadStorageServise', taskStorageService])
-        .service('interService', interService)
+        .service('csvDataStorageService', ['yadStorageServise', csvDataStorageService])
         .service('yadBrowseService', ['commander', yadBrowseService])
         .controller('MainController',     
         [
@@ -813,6 +916,14 @@ $(document).ready(() =>
             'taskStorageService', 
             'modelDefaults', 
             MainController
+        ])
+        .controller('TaskAnalysisController', 
+        [
+            '$scope', 
+            'interService',
+            'csvDataStorageService',
+            'taskAnalysisElementId',
+            TaskAnalysisController
         ])
         .controller('YadNavigatorController', 
         [
