@@ -467,8 +467,8 @@
                 <div class="modal-body">
                     
                     <!-- CSV data download progress -->
-                    <div class="row">
-                        <div class="col-md-10">
+                    <div class="row" ng-show="tan.phaseDownload">
+                        <div class="col-md-12">
                             
                             <div class="page-header">
                                 <h4>{{tan.trainDataDownloadHeader}}</h4>
@@ -477,6 +477,7 @@
                             <div class="progress">
                                 <div    class="progress-bar progress-bar-success" 
                                         role="progressbar" 
+                                        aria-label="{{tan.trainDataDownloadProgressAriaLabel}}"
                                         aria-valuenow="{{tan.trainDataDownloadProgress}}" 
                                         aria-valuemin="0" 
                                         aria-valuemax="100" 
@@ -491,6 +492,7 @@
                             <div class="progress">
                                 <div    class="progress-bar progress-bar-success" 
                                         role="progressbar" 
+                                        aria-label="{{tan.testDataDownloadProgressAriaLabel}}"
                                         aria-valuenow="{{tan.testDataDownloadProgress}}" 
                                         aria-valuemin="0" 
                                         aria-valuemax="100" 
@@ -500,6 +502,30 @@
                             
                         </div>
                     </div> <!-- end CSV data download progress -->
+                    
+                    <!-- Analysis stuff -->
+                    <div class="row" ng-show="tan.phaseAnalyse">
+                        <div class="col-md-12">
+
+                            <table class="table table-condensed">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Train data</th>
+                                        <th>Test data</th>
+                                    </tr>
+                                </thead>    
+                                <tbody>
+                                    <tr ng-repeat="entry in tan.metaData track by $index">
+                                        <td>{{entry[0]}}</td>
+                                        <td>{{entry[1]}}</td>
+                                        <td>{{entry[2]}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                        </div>    
+                    </div> <!-- end of Analysis stuff -->
                                         
                 </div> <!-- end modal body -->
                 
@@ -514,7 +540,7 @@
                 
             </div>
         </div>
-    </div>
+    </div> <!-- Task Analysis tool -->
         
     <!-- YAD Navigator -->
     <div class="modal" role="dialog" ng-controller="YadNavigatorController as yad" id="yadNavigatorContainer">
