@@ -470,14 +470,12 @@
                     <div class="row" ng-show="tan.phaseDownload">
                         <div class="col-md-12">
                             
-                            <div class="page-header">
-                                <h4>{{tan.trainDataDownloadHeader}}</h4>
-                            </div>
+                            <h5>{{::tan.trainDataDownloadHeader}}</h5>
                             
                             <div class="progress">
                                 <div    class="progress-bar progress-bar-success" 
                                         role="progressbar" 
-                                        aria-label="{{tan.trainDataDownloadProgressAriaLabel}}"
+                                        aria-label="{{::tan.trainDataDownloadProgressAriaLabel}}"
                                         aria-valuenow="{{tan.trainDataDownloadProgress}}" 
                                         aria-valuemin="0" 
                                         aria-valuemax="100" 
@@ -485,20 +483,20 @@
                                 </div>
                             </div>
 
-                            <div class="page-header">
-                                <h4>{{tan.testDataDownloadHeader}}</h4>
-                            </div>
-                            
+                            <h5>{{::tan.testDataDownloadHeader}}</h5>
+
                             <div class="progress">
                                 <div    class="progress-bar progress-bar-success" 
                                         role="progressbar" 
-                                        aria-label="{{tan.testDataDownloadProgressAriaLabel}}"
+                                        aria-label="{{::tan.testDataDownloadProgressAriaLabel}}"
                                         aria-valuenow="{{tan.testDataDownloadProgress}}" 
                                         aria-valuemin="0" 
                                         aria-valuemax="100" 
                                         style="width: {{tan.testDataDownloadProgress}}%;">{{tan.testDataDownloadProgress}}%
                                 </div>
                             </div>
+                            
+                            <h5 ng-show="tan.phaseAnalysisInProgress">{{::tan.analysisInProgressHint}}</h5>
                             
                         </div>
                     </div> <!-- end CSV data download progress -->
@@ -508,11 +506,11 @@
                         <div class="col-md-12">
 
                             <table class="table table-condensed">
-                                <thead>
+                                <thead class="bg-info">
                                     <tr>
                                         <th></th>
-                                        <th>Train data</th>
-                                        <th>Test data</th>
+                                        <th>{{::tan.tableHeaderTrain}}</th>
+                                        <th>{{::tan.tableHeaderTest}}</th>
                                     </tr>
                                 </thead>    
                                 <tbody>
@@ -520,6 +518,23 @@
                                         <td>{{entry[0]}}</td>
                                         <td>{{entry[1]}}</td>
                                         <td>{{entry[2]}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <h5><span class="text-info">{{::tan.titleClusterization}}</span></h5>
+                            
+                            <table class="table table-condensed">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th class="bg-info" ng-repeat="t in tan.clusterizationTabHeaderHoriz track by $index">{{::t}}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="tv in tan.clusterizationTabBlockVert track by $index">
+                                        <td class="bg-info"><b>{{::tv.title}}</b></td>
+                                        <td  ng-repeat="th in tv.data track by $index">{{th}}</td>
                                     </tr>
                                 </tbody>
                             </table>
