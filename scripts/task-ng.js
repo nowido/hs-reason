@@ -420,10 +420,17 @@ taskStorageService.prototype.promiseObjectContent = function(textJsonContent)
 
 //------------------------------------------------------------------------------
 
-function TaskAnalysisController($scope, interService, csvDataStorageService, elementId)
+function TaskAnalysisController
+            (
+                $scope, 
+                interService, 
+                csvDataStorageService, 
+                experimentService, 
+                elementId
+            )
 {
     var tan = this;
-    
+
     interService.tan = tan;
     
     tan.dialog = $('#' + elementId);
@@ -439,11 +446,18 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
     tan.trainDataDownloadProgressAriaLabel = 'Train dataset download progress';
     tan.testDataDownloadProgressAriaLabel = 'Test dataset download progress';
 
+    tan.analysisInProgressHint = 'Analyzing data ... ';
+
+    tan.tableHeaderTrain = 'Train data';
+    tan.tableHeaderTest = 'Test data';
+    
+    tan.titleClusterization = 'Clusters count estimation (with Y, on normalized train data)';
+
     tan.analyseTask = function(taskModel)
     {
         tan.taskModel = taskModel;
         
-        tan.dialog.on('shown.bs.modal', tan.downloadData);
+        tan.dialog.one('shown.bs.modal', tan.downloadData);
         
         tan.dialog.modal('show');
     }
@@ -479,6 +493,7 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
         tan.testDataDownloadProgress = 0;
         
         tan.phaseDownload = true;
+        tan.phaseAnalysisInProgress = false;
         tan.phaseAnalyse = false;
         
         csvDataStorageService.promiseCsvData(tan.taskModel.trainDataPath, tan.trainDataDownloadProgressCallback)
@@ -486,7 +501,7 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
         .then(records => 
         {
             tan.trainDataBulk = records;
-            
+
             return csvDataStorageService.promiseCsvData(tan.taskModel.testDataPath, tan.testDataDownloadProgressCallback);
         })
         .then(csvDataStorageService.promiseRecordsArray)
@@ -494,21 +509,121 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
         {
             tan.testDataBulk = records;
             
-            tan.metaData = 
-            [
-                ['Header present:', typeof(tan.trainDataBulk[0][0]) === 'string' ? 'yes' : 'no', typeof(tan.testDataBulk[0][0]) === 'string' ? 'yes' : 'no'],
-                ['Record count (including header):', tan.trainDataBulk.length, tan.testDataBulk.length], 
-                ['Record fields count (including Y):', tan.trainDataBulk[0].length, tan.testDataBulk[0].length], 
-                ['[Y = 0] records count:', 100, 200], 
-                ['[Y = 1] records count:', 1900, 1800]
-            ];
+            tan.phaseAnalysisInProgress = true;
             
+            $scope.$apply(); 
+            
+            return tan.promiseAnalysisInfo();
+        })
+        .then(() => 
+        {
             tan.phaseDownload = false;
+            tan.phaseAnalysisInProgress = false;
             tan.phaseAnalyse = true;
             
             $scope.$apply();  
         })
         .catch(console.log);    
+    }
+    
+    tan.promiseAnalysisInfo = function()
+    {
+        return new Promise((resolve, reject) => 
+        {
+            setTimeout(() => 
+            {
+                var trainDataContainsHeaderRow = experimentService.dataBulkContainsHeaderRow(tan.trainDataBulk);
+                var testDataContainsHeaderRow = experimentService.dataBulkContainsHeaderRow(tan.testDataBulk);
+                
+                if(trainDataContainsHeaderRow)
+                {
+                    experimentService.removeHeaderFromDataBulk(tan.trainDataBulk);
+                }
+                
+                if(testDataContainsHeaderRow)
+                {
+                    experimentService.removeHeaderFromDataBulk(tan.testDataBulk);
+                }
+                
+                var trainRanges = experimentService.buildRanges(tan.trainDataBulk);
+                var testRanges = experimentService.buildRanges(tan.testDataBulk);
+                
+                var trainZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(trainRanges);
+                var testZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(testRanges);
+                
+                var trainClasses = experimentService.countRecordsOfDifferentClasses(tan.trainDataBulk);
+                var testClasses = experimentService.countRecordsOfDifferentClasses(tan.testDataBulk);
+                
+                tan.metaData = 
+                [
+                    ['Header present:', trainDataContainsHeaderRow, testDataContainsHeaderRow],
+                    ['Data records count:', tan.trainDataBulk.length, tan.testDataBulk.length], 
+                    ['Data fields count (including Y):', tan.trainDataBulk[0].length, tan.testDataBulk[0].length], 
+                    ['Zero-dispersed fields count:', trainZeroDispersedFieldsCount, testZeroDispersedFieldsCount],
+                    ['[Y = 0] records count:', trainClasses[0], testClasses[0]], 
+                    ['[Y = 1] records count:', trainClasses[1], testClasses[1]]
+                ];
+                
+                experimentService.normalize(tan.trainDataBulk, trainRanges);
+                
+                tan.relPercentRadius = 20;
+                tan.relPercentAmplitude = 20;
+                
+                tan.clusterizationTabHeaderHoriz = 
+                [
+                    'radius -' + tan.relPercentRadius + '%',
+                    'radius',
+                    'radius +' + tan.relPercentRadius + '%'
+                ];
+                
+                var tabRadius = 
+                [
+                    tan.taskModel.clusterizationRadius * (100 - tan.relPercentRadius) / 100, 
+                    tan.taskModel.clusterizationRadius,
+                    tan.taskModel.clusterizationRadius * (100 + tan.relPercentRadius) / 100
+                ];
+                
+                var tabAmplitude = 
+                [
+                    tan.taskModel.yAmplitude * (100 - tan.relPercentAmplitude) / 100, 
+                    tan.taskModel.yAmplitude,
+                    tan.taskModel.yAmplitude * (100 + tan.relPercentAmplitude) / 100
+                ];
+                
+                var clustersPromises = [];
+                
+                tabAmplitude.forEach(a => 
+                {
+                    tabRadius.forEach(r => 
+                    {
+                        var bulk = experimentService.clone(tan.trainDataBulk);
+                        
+                        experimentService.mapOutput(bulk, a, 0.5, tan.taskModel.ySeparator);    
+                        
+                        clustersPromises.push(experimentService.promiseClusterize(bulk, r));            
+                    });    
+                });
+        
+                Promise.all(clustersPromises)
+                .then(promisedArray => 
+                {
+                    var row1 = [promisedArray[0].length, promisedArray[1].length, promisedArray[2].length];
+                    var row2 = [promisedArray[3].length, promisedArray[4].length, promisedArray[5].length];
+                    var row3 = [promisedArray[6].length, promisedArray[7].length, promisedArray[8].length];
+                    
+                    tan.clusterizationTabBlockVert = 
+                    [
+                        {title: 'amplitude -' + tan.relPercentAmplitude + '%', data: row1},
+                        {title: 'amplitude', data: row2},
+                        {title: 'amplitude +' + tan.relPercentAmplitude + '%', data: row3}
+                    ];
+                    
+                    resolve();
+                })
+                .catch(reject);
+                
+            }, 0);    
+        });
     }
 }
 
@@ -517,14 +632,46 @@ function TaskAnalysisController($scope, interService, csvDataStorageService, ele
 function csvDataStorageService(yadStorage)
 {
     this.yadStorage = yadStorage;
+    
+    this.fakeProgress = new ProgressEvent('progress',
+    {
+        lengthComputable: true, loaded: 1, total: 1
+    });
+    
+    this.cache = {};
 }
 
 csvDataStorageService.prototype.promiseCsvData = function(csvFilePath, onProgress)
 {
     var entry = this;
     
+    var cached = entry.cache[csvFilePath];
+
+    if(cached)
+    {
+        return new Promise((resolve, reject) => 
+        {
+            setTimeout(() => 
+            {
+                if(onProgress)
+                {
+                    onProgress(entry.fakeProgress);
+                }
+                
+                resolve(cached);
+                
+            }, 0);
+        });
+    }
+    
     return entry.yadStorage.asyncDownload('app:' + csvFilePath, onProgress)
-            .then(entry.promiseTextContent);
+            .then(entry.promiseTextContent)
+            .then(info => 
+            {
+                entry.cache[csvFilePath] = info;
+                
+                return Promise.resolve(info);
+            });
 }
 
 csvDataStorageService.prototype.promiseTextContent = function(blob)
@@ -569,6 +716,501 @@ csvDataStorageService.prototype.promiseRecordsArray = function(csvContent)
         }
         
         return Promise.resolve(dataRecords)
+    });
+}
+
+//------------------------------------------------------------------------------
+
+function workersPoolFactory()
+{
+
+}
+
+workersPoolFactory.prototype.createPool = function(size)
+{
+    return new WorkersPool(size);
+}
+
+function WorkersPool(size)
+{
+    this.size = size;
+    this.pool = [];
+}
+
+WorkersPool.prototype.init = function(workerProc, feedbackProc)
+{
+    var entry = this;
+    
+    var workerUrl = URL.createObjectURL(new Blob(["(" + workerProc.toString() + ")()"], {type: "application/javascript"}));        
+    
+    for(var i = 0; i < entry.size; ++i)
+    {
+        var we = entry.pool[i];
+        
+        if(we)
+        {
+            we.worker.terminate();
+        }
+        
+        var w = new Worker(workerUrl);
+        
+        entry.pool[i] = {worker: w, state: 0};
+        
+        w.onmessage = feedbackProc;
+    }
+
+    URL.revokeObjectURL(workerUrl);
+}
+
+WorkersPool.prototype.findIdleIndex = function()
+{
+    return this.pool.findIndex(element => (element.state === 0));
+}
+
+WorkersPool.prototype.dismiss = function(index)
+{
+    this.pool[index].state = 0;
+}
+
+WorkersPool.prototype.invoke = function(index, arg)
+{
+    var we = this.pool[index];
+    
+    we.state = 1;
+    
+    arg.workerId = index;
+    
+    we.worker.postMessage(arg);
+}
+
+//------------------------------------------------------------------------------
+
+function experimentService(workersPoolFactory)
+{
+    this.workersCount = 4;     
+    
+    var wp = workersPoolFactory.createPool(this.workersCount);
+    
+    wp.init(this.workerEntry, this.onWorkerMessage.bind(this));
+
+    this.workers = wp;
+    
+    this.workerTaskToken = 0;
+    
+    this.workerTasks = {};
+    
+    this.deferredInvocationQueue = [];
+}
+
+experimentService.prototype.dataBulkContainsHeaderRow = function(dataBulk)
+{
+    return dataBulk[0].some(entry => (typeof(entry) === 'string'));
+}
+
+experimentService.prototype.removeHeaderFromDataBulk = function(dataBulk)
+{
+    // we do not check here if header row is actually present!
+    
+    var firstRow = dataBulk[0];
+    var lastRow = dataBulk.pop();
+    
+    lastRow.forEach((element, index) => {firstRow[index] = element});
+}
+
+experimentService.prototype.countRecordsOfDifferentClasses = function(dataBulk)
+{
+    // returns [count0, count1]
+    
+    var registry = [0, 0];
+    
+    var yIndex = dataBulk[0].length - 1;
+    
+    dataBulk.forEach(row => {registry[row[yIndex]]++});
+
+    return registry;
+}
+
+experimentService.prototype.buildRanges = function(dataBulk)
+{
+    var ranges = {min: [], max: []};
+    
+    var min = ranges.min;
+    var max = ranges.max;
+    
+    dataBulk[0].forEach((value, colIndex) => 
+    {
+        max[colIndex] = min[colIndex] = value;
+    });
+
+    dataBulk.forEach((row, rowIndex) => 
+    {
+        if(rowIndex > 0)
+        {
+            row.forEach((value, colIndex) => 
+            {
+                if(value < min[colIndex])
+                {
+                    min[colIndex] = value;
+                }
+                
+                if(value > max[colIndex])
+                {
+                    max[colIndex] = value;
+                }
+            });
+        }
+    });
+    
+    return ranges;
+}
+
+experimentService.prototype.countZeroDispersedFields = function(ranges)
+{
+    var min = ranges.min;
+    var max = ranges.max;
+    
+    var count = 0;
+    
+    min.forEach((value, index) => 
+    {
+        if(max[index] === value)
+        {
+            ++count;
+        }
+    });
+    
+    return count;
+}
+
+experimentService.prototype.normalize = function(dataBulk, ranges)
+{
+    // ranges: {min: [], max: []};
+    //
+    // normalize data in-place
+    
+    var min = ranges.min;
+    var max = ranges.max;
+    
+    var rd = [];
+    
+    max.forEach((value, index) => 
+    {
+        rd[index] = value - min[index];    
+    });
+    
+    dataBulk.forEach(row => 
+    {
+        row.forEach((value, index) => 
+        {
+            var r = rd[index];
+            
+            if(r > 0)
+            {
+                row[index] = (value - min[index]) / r; 
+            }
+            else
+            {
+                row[index] = 0;
+            }
+        });    
+    });    
+}
+
+experimentService.prototype.clone = function(dataBulk)
+{
+    var rows = [];
+    
+    dataBulk.forEach(row => 
+    {
+        var rowCopy = [];
+        
+        row.forEach(value => {rowCopy.push(value)});    
+        
+        rows.push(rowCopy);
+    });    
+
+    return rows;    
+}
+
+experimentService.prototype.mapOutput = function(dataBulk, amplitude, currentSeparator, newSeparator)
+{
+    var yIndex = dataBulk[0].length - 1;
+    
+    var value0 = newSeparator - amplitude;
+    var value1 = newSeparator + amplitude;
+    
+    dataBulk.forEach(row => 
+    {
+        row[yIndex] = (row[yIndex] < currentSeparator) ? value0 : value1;
+    });    
+}
+
+experimentService.prototype.workerEntry = function()
+{
+////////////////// FOREL clusterization stuff    
+function buildClusters(radius, samples, callbackOnNewCluster)
+{
+    const epsilon = 0.0001;
+    
+    var samplesCount = samples.length;
+    
+    var pointDimension = samples[0].length;
+    
+    var unclusterizedIndexes = [];
+    
+    for(var i = 0; i < samplesCount; ++i)
+    {
+        unclusterizedIndexes.push(i);
+    }
+    
+    var clusters = [];
+    
+        // helpers
+
+    function distance(p1, p2)
+    {
+        var s = 0;
+        
+        for(var i = 0; i < pointDimension; ++i)
+        {
+            var d = (p1[i] - p2[i]);
+            
+            s += d * d;
+        }
+        
+        return Math.sqrt(s);
+    }
+    
+    function findNeighbours(center)
+    {
+        var neighbours = [];
+        
+        var count = unclusterizedIndexes.length;
+        
+        for(var i = 0; i < count; ++i)
+        {
+            var testIndex = unclusterizedIndexes[i];
+            
+            if(distance(center, samples[testIndex]) < radius)   
+            {
+                neighbours.push(testIndex);
+            }
+        }
+        
+        return neighbours;
+    }
+    
+    function excludeFromClusterization(setOfPoints)
+    {
+        var newCluster = {points:[]};
+        
+        var newUnclusterized = [];
+        
+        var unclusterizedCount = unclusterizedIndexes.length;
+        var pointsCount = setOfPoints.length;
+        
+        for(var i = 0; i < unclusterizedCount; ++i)
+        {
+            var pointIndex = unclusterizedIndexes[i];
+            
+            var found = -1;
+            
+            for(var j = 0; j < pointsCount; ++j)
+            {
+                if(setOfPoints[j] === pointIndex)
+                {
+                    found = j;
+                    break;
+                }
+            }
+            
+            if(found < 0)
+            {
+                newUnclusterized.push(pointIndex);
+            }
+            else
+            {
+                newCluster.points.push(pointIndex);
+            }
+        }
+        
+        unclusterizedIndexes = newUnclusterized;
+        
+        return newCluster;
+    }
+    
+    function calcMassCenter(setOfPoints)
+    {
+        var count = setOfPoints.length;
+
+        var center = [];
+        
+        var point = samples[setOfPoints[0]];
+        
+        for(var i = 0; i < pointDimension; ++i)
+        {
+            center[i] = point[i];
+        }
+        
+        for(var i = 1; i < count; ++i)
+        {
+            point = samples[setOfPoints[i]];
+            
+            for(var j = 0; j < pointDimension; ++j)
+            {
+                center[j] += point[j];    
+            }
+        }
+
+        for(var i = 0; i < pointDimension; ++i)
+        {
+            center[i] /= count;
+        }
+        
+        return center;
+    }
+    
+    function selectRandomCenter()
+    {
+        var center = [];
+        
+        var randomIndex = Math.floor(Math.random() * unclusterizedIndexes.length);
+        
+        var pointSelected = samples[unclusterizedIndexes[randomIndex]];
+        
+        for(var i = 0; i < pointDimension; ++i)
+        {
+            center[i] = pointSelected[i];    
+        }
+        
+        return center;
+    }
+        
+        // main FOREL
+    do 
+    {
+        var center = selectRandomCenter();
+        
+        do
+        {
+            var neighbours = findNeighbours(center);
+            var newCenter = calcMassCenter(neighbours);   
+            
+            var stabilized = (distance(center, newCenter) < epsilon);
+            
+            center = newCenter;
+        }
+        while(!stabilized);
+    
+        var cluster = excludeFromClusterization(neighbours);
+        
+        cluster.center = center;
+
+        clusters.push(cluster);
+        
+        if(callbackOnNewCluster)
+        {
+            callbackOnNewCluster(cluster);
+        }
+    }
+    while(unclusterizedIndexes.length > 0);
+    
+        // sort clusters by population (biggest first)
+    
+    clusters.sort(function(a, b){
+        return b.points.length - a.points.length;
+    });
+    
+    return clusters;
+}
+////////////////// end FOREL clusterization stuff 
+
+    onmessage = function(e)
+    {
+        var arg = e.data;
+        
+        var result = 
+        {
+            workerId: arg.workerId,
+            workerTaskKey: arg.workerTaskKey
+        };
+        
+        if(arg.proc === 'clusterize')
+        {
+            try
+            {
+                result.clusters = buildClusters(arg.radius, arg.samples);
+            }
+            catch(e)
+            {
+                result.error = e;
+            }
+            
+            postMessage(result);
+        }
+    }
+}
+
+experimentService.prototype.onWorkerMessage = function(e)
+{
+    var arg = e.data;
+    
+    var entry = this;
+    
+    var deferred = entry.deferredInvocationQueue.pop();
+    
+    if(deferred)
+    {
+        entry.workers.invoke(arg.workerId, deferred.task);
+    }
+    else
+    {
+        entry.workers.dismiss(arg.workerId);
+    }    
+    
+    var workerTaskContext = entry.workerTasks[arg.workerTaskKey];
+    
+    delete entry.workerTasks[arg.workerTaskKey];
+    
+    if(arg.clusters)
+    {
+        workerTaskContext.resolve(arg.clusters);
+    }
+    else if(arg.error)
+    {
+        workerTaskContext.reject(arg.error);
+    }
+}
+
+experimentService.prototype.promiseClusterize = function(dataBulk, radius)
+{
+    var entry = this;
+    
+    return new Promise((resolve, reject) => 
+    {
+        var workerTaskKey = entry.workerTaskToken.toString();
+        
+        ++entry.workerTaskToken;
+        
+        var workerTaskContext = 
+        {
+            task: {workerTaskKey: workerTaskKey, proc: 'clusterize', radius: radius, samples: dataBulk},    
+            resolve: resolve,
+            reject: reject
+        };
+        
+        entry.workerTasks[workerTaskKey] = workerTaskContext;
+        
+        var idle = entry.workers.findIdleIndex();
+        
+        if(idle < 0)
+        {
+            entry.deferredInvocationQueue.push(workerTaskContext);
+        }
+        else
+        {
+            entry.workers.invoke(idle, workerTaskContext.task);    
+        }
     });
 }
 
@@ -634,7 +1276,7 @@ function YadNavigatorController($scope, interService, yadBrowseService, elementI
     {
         return new Promise((resolve, reject) => 
         {
-            yad.dialog.on('hidden.bs.modal', () => 
+            yad.dialog.one('hidden.bs.modal', () => 
             {
                 if(yad.selectedPath && (yad.selectedPath.length > 0))
                 {
@@ -955,6 +1597,8 @@ $(document).ready(() =>
         .service('yadStorageServise', ['commander', YadStorage])
         .service('taskStorageService', ['yadStorageServise', taskStorageService])
         .service('csvDataStorageService', ['yadStorageServise', csvDataStorageService])
+        .service('workersPoolFactory', workersPoolFactory)
+        .service('experimentService', ['workersPoolFactory', experimentService])
         .service('yadBrowseService', ['commander', yadBrowseService])
         .controller('MainController',     
         [
@@ -970,6 +1614,7 @@ $(document).ready(() =>
             '$scope', 
             'interService',
             'csvDataStorageService',
+            'experimentService',
             'taskAnalysisElementId',
             TaskAnalysisController
         ])
