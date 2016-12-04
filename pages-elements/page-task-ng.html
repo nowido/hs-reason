@@ -479,7 +479,7 @@
                                         aria-valuenow="{{tan.trainDataDownloadProgress}}" 
                                         aria-valuemin="0" 
                                         aria-valuemax="100" 
-                                        style="width: {{tan.trainDataDownloadProgress}}%;">{{tan.trainDataDownloadProgress}}%
+                                        style="min-width: 3em; width: {{tan.trainDataDownloadProgress}}%;">{{tan.trainDataDownloadProgress}}%
                                 </div>
                             </div>
 
@@ -492,7 +492,7 @@
                                         aria-valuenow="{{tan.testDataDownloadProgress}}" 
                                         aria-valuemin="0" 
                                         aria-valuemax="100" 
-                                        style="width: {{tan.testDataDownloadProgress}}%;">{{tan.testDataDownloadProgress}}%
+                                        style="min-width: 3em; width: {{tan.testDataDownloadProgress}}%;">{{tan.testDataDownloadProgress}}%
                                 </div>
                             </div>
                             
@@ -541,6 +541,71 @@
                             
                         </div>    
                     </div> <!-- end of Analysis stuff -->
+                    
+                    <!-- L-BFGS stuff -->
+                    <div class="row" ng-show="tan.phaseAnalyse">
+                        
+                        <div class="col-md-4">
+                            
+                            <h4></h4>
+                            
+                            <div class="btn-group btn-group-justified" role="group">
+                                <div class="btn-group" role="group">
+                                    <button type="button" 
+                                            aria-label="{{::tan.buttonLbfgsAriaLabel}}"
+                                            ng-class="tan.getTrainButtonClass()"
+                                            ng-click="tan.tryLbfgs()">
+                                        <span class="glyphicon glyphicon-hourglass"></span>&nbsp;{{::tan.buttonLbfgsCaption}}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <h4></h4>
+                            
+                            <div class="btn-group btn-group-justified" role="group" ng-show="tan.phaseTrainingInProgress">
+                                <div class="btn-group" role="group">
+                                    <button type="button" 
+                                            aria-label="{{::tan.buttonStopLbfgsAriaLabel}}"
+                                            class="btn btn-danger"
+                                            ng-click="tan.stopLbfgs()">
+                                        <span class="glyphicon glyphicon-off"></span>&nbsp;{{::tan.buttonStopLbfgsCaption}}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                        </div> 
+                        
+                        <div class="col-md-8" ng-show="tan.phaseTrainingInProgress">
+                            
+                            <span>{{::tan.lbfgsProgressTitle}}</span>
+                            <div class="progress">
+                                <div    class="progress-bar progress-bar-info" 
+                                        role="progressbar" 
+                                        aria-label="{{::tan.lbfgsProgressAriaLabel}}"
+                                        aria-valuenow="{{tan.lbfgsProgress}}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="{{tan.taskModel.lbfgsIterationsCount}}" 
+                                        style="min-width: 3em; width: {{tan.lbfgsProgress / tan.taskModel.lbfgsIterationsCount * 100}}%;">
+                                    {{tan.lbfgsProgress}}
+                                </div>
+                            </div>
+                            
+                            <span>{{::tan.lbfgsRawErrorTitle}}</span>
+                            <div class="progress">
+                                <div    class="progress-bar progress-bar-warning" 
+                                        role="progressbar" 
+                                        aria-label="{{::tan.lbfgsErrorProgressAriaLabel}}"
+                                        aria-valuenow="{{tan.lbfgsErrorProgress}}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="{{tan.lbfgsErrorValueMax}}"
+                                        style="min-width: 3em; width: {{tan.lbfgsErrorProgress / tan.lbfgsErrorValueMax * 100}}%;">
+                                    {{tan.lbfgsErrorProgress}}
+                                </div>
+                            </div>
+                            
+                        </div>
+
+                    </div> <!-- end of L-BFGS stuff --> 
                                         
                 </div> <!-- end modal body -->
                 
