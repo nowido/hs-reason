@@ -277,8 +277,8 @@ function MainController($scope, interService, socket, taskStorageService, modelD
     vm.getAnalyseButtonClass = function()
     {
         return vm.dataSourcesPresent() ? 
-            'btn btn-warning' : 
-            'btn btn-warning disabled';
+            'btn btn-default' : 
+            'btn btn-default disabled';
     }
     
     vm.analyseTask = function()
@@ -452,14 +452,32 @@ function TaskAnalysisController
     tan.tableHeaderTest = 'Test data';
     
     tan.titleClusterization = 'Clusters count estimation (with Y, on normalized train data)';
+    
+    tan.buttonLbfgsCaption = 'Try L-BFGS training';
+    tan.buttonLbfgsAriaLabel = tan.buttonLbfgsCaption;
+    
+    tan.lbfgsProgressTitle = 'Done steps:';
+    tan.lbfgsProgressAriaLabel = 'L-BFGS training progress';
+    
+    tan.lbfgsRawErrorTitle = 'Raw error:';
+    tan.lbfgsErrorProgressAriaLabel = tan.lbfgsRawErrorTitle;
+    
+    tan.buttonStopLbfgsCaption = 'Stop';
+    tan.buttonStopLbfgsAriaLabel = 'Stop L-BFGS training';
 
     tan.analyseTask = function(taskModel)
     {
         tan.taskModel = taskModel;
         
         tan.dialog.one('shown.bs.modal', tan.downloadData);
+        tan.dialog.one('hidden.bs.modal', tan.quitAnalysis);
         
         tan.dialog.modal('show');
+    }
+    
+    tan.quitAnalysis = function()
+    {
+        experimentService.terminateWorkers();
     }
     
     tan.trainDataDownloadProgressCallback = function(evt)
@@ -495,6 +513,7 @@ function TaskAnalysisController
         tan.phaseDownload = true;
         tan.phaseAnalysisInProgress = false;
         tan.phaseAnalyse = false;
+        tan.phaseTrainingInProgress = false;
         
         csvDataStorageService.promiseCsvData(tan.taskModel.trainDataPath, tan.trainDataDownloadProgressCallback)
         .then(csvDataStorageService.promiseRecordsArray) 
@@ -528,102 +547,192 @@ function TaskAnalysisController
     
     tan.promiseAnalysisInfo = function()
     {
-        return new Promise((resolve, reject) => 
+        return Promise.resolve().then(() => 
         {
-            setTimeout(() => 
+            var trainDataContainsHeaderRow = experimentService.dataBulkContainsHeaderRow(tan.trainDataBulk);
+            var testDataContainsHeaderRow = experimentService.dataBulkContainsHeaderRow(tan.testDataBulk);
+            
+            if(trainDataContainsHeaderRow)
             {
-                var trainDataContainsHeaderRow = experimentService.dataBulkContainsHeaderRow(tan.trainDataBulk);
-                var testDataContainsHeaderRow = experimentService.dataBulkContainsHeaderRow(tan.testDataBulk);
-                
-                if(trainDataContainsHeaderRow)
+                experimentService.removeHeaderFromDataBulk(tan.trainDataBulk);
+            }
+            
+            if(testDataContainsHeaderRow)
+            {
+                experimentService.removeHeaderFromDataBulk(tan.testDataBulk);
+            }
+            
+            var trainRanges = experimentService.buildRanges(tan.trainDataBulk);
+            var testRanges = experimentService.buildRanges(tan.testDataBulk);
+            
+            var trainZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(trainRanges);
+            var testZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(testRanges);
+            
+            var trainClasses = experimentService.countRecordsOfDifferentClasses(tan.trainDataBulk);
+            var testClasses = experimentService.countRecordsOfDifferentClasses(tan.testDataBulk);
+            
+            tan.metaData = 
+            [
+                ['Header present:', trainDataContainsHeaderRow, testDataContainsHeaderRow],
+                ['Data records count:', tan.trainDataBulk.length, tan.testDataBulk.length], 
+                ['Data fields count (including Y):', tan.trainDataBulk[0].length, tan.testDataBulk[0].length], 
+                ['Zero-dispersed fields count:', trainZeroDispersedFieldsCount, testZeroDispersedFieldsCount],
+                ['[Y = 0] records count:', trainClasses[0], testClasses[0]], 
+                ['[Y = 1] records count:', trainClasses[1], testClasses[1]]
+            ];
+            
+            experimentService.normalize(tan.trainDataBulk, trainRanges);
+            
+            tan.relPercentRadius = 20;
+            tan.relPercentAmplitude = 50;
+            
+            tan.clusterizationTabHeaderHoriz = 
+            [
+                'radius -' + tan.relPercentRadius + '%',
+                'radius',
+                'radius +' + tan.relPercentRadius + '%'
+            ];
+            
+            var tabRadius = 
+            [
+                tan.taskModel.clusterizationRadius * (100 - tan.relPercentRadius) / 100, 
+                tan.taskModel.clusterizationRadius,
+                tan.taskModel.clusterizationRadius * (100 + tan.relPercentRadius) / 100
+            ];
+            
+            var tabAmplitude = 
+            [
+                tan.taskModel.yAmplitude * (100 - tan.relPercentAmplitude) / 100, 
+                tan.taskModel.yAmplitude,
+                tan.taskModel.yAmplitude * (100 + tan.relPercentAmplitude) / 100
+            ];
+            
+            experimentService.initWorkers(3);
+            
+            var clustersPromises = [];
+            
+            var tabIndex = 0;
+            
+            tabAmplitude.forEach(a => 
+            {
+                tabRadius.forEach(r => 
                 {
-                    experimentService.removeHeaderFromDataBulk(tan.trainDataBulk);
-                }
-                
-                if(testDataContainsHeaderRow)
-                {
-                    experimentService.removeHeaderFromDataBulk(tan.testDataBulk);
-                }
-                
-                var trainRanges = experimentService.buildRanges(tan.trainDataBulk);
-                var testRanges = experimentService.buildRanges(tan.testDataBulk);
-                
-                var trainZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(trainRanges);
-                var testZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(testRanges);
-                
-                var trainClasses = experimentService.countRecordsOfDifferentClasses(tan.trainDataBulk);
-                var testClasses = experimentService.countRecordsOfDifferentClasses(tan.testDataBulk);
-                
-                tan.metaData = 
-                [
-                    ['Header present:', trainDataContainsHeaderRow, testDataContainsHeaderRow],
-                    ['Data records count:', tan.trainDataBulk.length, tan.testDataBulk.length], 
-                    ['Data fields count (including Y):', tan.trainDataBulk[0].length, tan.testDataBulk[0].length], 
-                    ['Zero-dispersed fields count:', trainZeroDispersedFieldsCount, testZeroDispersedFieldsCount],
-                    ['[Y = 0] records count:', trainClasses[0], testClasses[0]], 
-                    ['[Y = 1] records count:', trainClasses[1], testClasses[1]]
-                ];
-                
-                experimentService.normalize(tan.trainDataBulk, trainRanges);
-                
-                tan.relPercentRadius = 20;
-                tan.relPercentAmplitude = 20;
-                
-                tan.clusterizationTabHeaderHoriz = 
-                [
-                    'radius -' + tan.relPercentRadius + '%',
-                    'radius',
-                    'radius +' + tan.relPercentRadius + '%'
-                ];
-                
-                var tabRadius = 
-                [
-                    tan.taskModel.clusterizationRadius * (100 - tan.relPercentRadius) / 100, 
-                    tan.taskModel.clusterizationRadius,
-                    tan.taskModel.clusterizationRadius * (100 + tan.relPercentRadius) / 100
-                ];
-                
-                var tabAmplitude = 
-                [
-                    tan.taskModel.yAmplitude * (100 - tan.relPercentAmplitude) / 100, 
-                    tan.taskModel.yAmplitude,
-                    tan.taskModel.yAmplitude * (100 + tan.relPercentAmplitude) / 100
-                ];
-                
-                var clustersPromises = [];
-                
-                tabAmplitude.forEach(a => 
-                {
-                    tabRadius.forEach(r => 
+                    var bulk = experimentService.clone(tan.trainDataBulk);
+                    
+                    experimentService.mapOutput(bulk, a, 0.5, tan.taskModel.ySeparator);    
+                    
+                    if(tabIndex === 4)
                     {
-                        var bulk = experimentService.clone(tan.trainDataBulk);
-                        
-                        experimentService.mapOutput(bulk, a, 0.5, tan.taskModel.ySeparator);    
-                        
-                        clustersPromises.push(experimentService.promiseClusterize(bulk, r));            
-                    });    
-                });
-        
-                Promise.all(clustersPromises)
-                .then(promisedArray => 
-                {
-                    var row1 = [promisedArray[0].length, promisedArray[1].length, promisedArray[2].length];
-                    var row2 = [promisedArray[3].length, promisedArray[4].length, promisedArray[5].length];
-                    var row3 = [promisedArray[6].length, promisedArray[7].length, promisedArray[8].length];
+                            // keep for further use on L-BFGS phase
+                        tan.mappedTrainBulk = bulk;
+                    }
                     
-                    tan.clusterizationTabBlockVert = 
-                    [
-                        {title: 'amplitude -' + tan.relPercentAmplitude + '%', data: row1},
-                        {title: 'amplitude', data: row2},
-                        {title: 'amplitude +' + tan.relPercentAmplitude + '%', data: row3}
-                    ];
+                    clustersPromises.push(experimentService.promiseClusterize(bulk, r));            
                     
-                    resolve();
-                })
-                .catch(reject);
-                
-            }, 0);    
+                    ++tabIndex;
+                });    
+            });
+            
+            return Promise.all(clustersPromises);
+        })
+        .then(promisedArray => 
+        {
+            var row1 = [promisedArray[0].length, promisedArray[1].length, promisedArray[2].length];
+            var row2 = [promisedArray[3].length, promisedArray[4].length, promisedArray[5].length];
+            var row3 = [promisedArray[6].length, promisedArray[7].length, promisedArray[8].length];
+            
+                // keep for further use on L-BFGS phase
+            tan.taskClusters = promisedArray[4];
+            
+            tan.clusterizationTabBlockVert = 
+            [
+                {title: 'amplitude -' + tan.relPercentAmplitude + '%', data: row1},
+                {title: 'amplitude', data: row2},
+                {title: 'amplitude +' + tan.relPercentAmplitude + '%', data: row3}
+            ];
+            
+            experimentService.terminateWorkers();
         });
+    }
+    
+    tan.lbfgsProgressCallback = function(lbfgsProgressInfo)
+    {
+        if(lbfgsProgressInfo.step === 1)
+        {
+            tan.lbfgsErrorValueMax = lbfgsProgressInfo.fCurrent.toFixed(2);
+        }
+        
+        tan.lbfgsErrorProgress = lbfgsProgressInfo.fCurrent.toFixed(2);
+        
+        tan.lbfgsProgress = lbfgsProgressInfo.step;
+        
+        $scope.$apply();
+        
+        console.log(lbfgsProgressInfo);    
+    }
+    
+    tan.getTrainButtonClass = function()
+    {
+        return tan.phaseTrainingInProgress ? 
+            'btn btn-default disabled' : 
+            'btn btn-default';
+    }
+    
+    tan.tryLbfgs = function()
+    {
+        if(tan.phaseTrainingInProgress)
+        {
+            return;
+        }
+        
+        experimentService.initWorkers(1);
+        
+        var anfisModel = experimentService.initAnfisModel
+        (
+            tan.taskClusters, 
+            tan.taskModel.anfisRulesCount, 
+            tan.taskModel.adaptiveAnfisRulesCount, 
+            tan.taskModel.qFactor, 
+            tan.taskModel.clusterizationRadius
+        );
+        
+        var xandyTrainSet = experimentService.splitBulkToArgsAndOutput(tan.mappedTrainBulk)
+        
+        var lbfgsArgs = 
+        {
+            lbfgsIterationsCount: tan.taskModel.lbfgsIterationsCount,
+            lbfgsHistorySize: tan.taskModel.lbfgsHistorySize,
+            lbfgsReportStepsCount: tan.taskModel.lbfgsReportStepsCount,
+            linearSearchStepsCount: 20,
+            epsilon: 1e-8
+        };
+        
+        tan.phaseTrainingInProgress = true;
+        
+        experimentService.promiseOptimize(anfisModel, xandyTrainSet, lbfgsArgs, tan.lbfgsProgressCallback)
+        .then(lbfgsResult => 
+        {
+            experimentService.terminateWorkers();
+            
+            tan.phaseTrainingInProgress = false;
+            
+            tan.lbfgsProgress = lbfgsResult.stepsDone;
+            
+            $scope.$apply();
+        })
+        .catch(console.log);
+    }
+    
+    tan.stopLbfgs = function()
+    {
+        if(!tan.phaseTrainingInProgress)
+        {
+            return;
+        }
+        
+        experimentService.terminateWorkers();
+        
+        tan.phaseTrainingInProgress = false;
     }
 }
 
@@ -783,23 +892,69 @@ WorkersPool.prototype.invoke = function(index, arg)
     we.worker.postMessage(arg);
 }
 
+WorkersPool.prototype.terminate = function()
+{
+    var entry = this;
+
+    for(var i = 0; i < entry.size; ++i)
+    {
+        var we = entry.pool[i];
+        
+        if(we)
+        {
+            we.worker.terminate();
+        }
+    }
+    
+    entry.pool = [];
+}
+
 //------------------------------------------------------------------------------
 
 function experimentService(workersPoolFactory)
 {
-    this.workersCount = 4;     
-    
-    var wp = workersPoolFactory.createPool(this.workersCount);
-    
-    wp.init(this.workerEntry, this.onWorkerMessage.bind(this));
+    this.workersPoolFactory = workersPoolFactory;
+}
 
-    this.workers = wp;
+experimentService.prototype.initWorkers = function(workersCount)
+{
+    var entry = this;
     
-    this.workerTaskToken = 0;
+    entry.workersCount = workersCount;     
     
-    this.workerTasks = {};
+    var wp = entry.workersPoolFactory.createPool(workersCount);
     
-    this.deferredInvocationQueue = [];
+    wp.init(entry.workerEntry, entry.onWorkerMessage.bind(entry));
+
+    entry.workers = wp;
+    
+    entry.workerTaskToken = 0;
+    
+    entry.workerTasks = {};
+    
+    entry.deferredInvocationQueue = [];
+}
+
+experimentService.prototype.terminateWorkers = function()
+{
+    var entry = this;
+    
+    if(entry.workers)
+    {
+            // reject our promises, if any
+        
+        Object.keys(entry.workerTasks).forEach(key => 
+        {
+            var wt = entry.workerTasks[key];
+            
+            if(wt.reject)
+            {
+                wt.reject(new Error('Background task was terminated by external request'));
+            }
+        });
+        
+        entry.workers.terminate();
+    }
 }
 
 experimentService.prototype.dataBulkContainsHeaderRow = function(dataBulk)
@@ -943,6 +1098,82 @@ experimentService.prototype.mapOutput = function(dataBulk, amplitude, currentSep
     {
         row[yIndex] = (row[yIndex] < currentSeparator) ? value0 : value1;
     });    
+}
+
+experimentService.prototype.splitBulkToArgsAndOutput = function(dataBulk)
+{
+    // returns {X: [record1, record2, ... , recordN], Y:[]}
+    
+    var result = {X: [], Y: []};
+    
+    var yIndex = dataBulk[0].length - 1;
+    
+    var resultX = result.X;
+    var resultY = result.Y;
+    
+    dataBulk.forEach(row => 
+    {
+        for(var i = 0; i < yIndex; ++i)
+        {
+            resultX.push(row[i]);
+        }
+
+        resultY.push(row[yIndex]);
+    });
+    
+    return result;
+}
+
+experimentService.prototype.initAnfisModel = function(clusters, rulesCount, adaptiveRulesCount, qFactor, radius)
+{
+    var anfisModel = {};
+    
+    var yIndex = clusters[0].center.length - 1;
+    
+    anfisModel.xDimension = yIndex;
+    anfisModel.rulesCount = (adaptiveRulesCount ? clusters.length : rulesCount);
+    anfisModel.parameters = [];
+    
+        // initialize model parameters
+        // a - cluster center, q - qFactor * radius, b = 0, l0 = average y for points in cluster    
+        
+    var parameterIndex = 0;
+    
+    var parameters = anfisModel.parameters;
+    
+    for(var r = 0; r < anfisModel.rulesCount; ++r)
+    {
+        var cluster = clusters[r % clusters.length];
+            
+            // a
+        for(var col = 0; col < yIndex; ++col)
+        {
+            parameters[parameterIndex] = cluster.center[col];
+            ++parameterIndex;                    
+        }
+            // q
+        //var q = qFactor * radius;
+        var q = qFactor;
+        
+        for(var col = 0; col < yIndex; ++col)
+        {
+            parameters[parameterIndex] = q;
+            ++parameterIndex;                    
+        }
+            // b
+        for(var col = 0; col < yIndex; ++col)
+        {
+            parameters[parameterIndex] = 0;
+            ++parameterIndex;                    
+        }
+            // linear 0
+            // y center for this cluster    
+
+        parameters[parameterIndex] = cluster.center[yIndex];
+        ++parameterIndex;
+    }    
+    
+    return anfisModel;
 }
 
 experimentService.prototype.workerEntry = function()
@@ -1125,6 +1356,937 @@ function buildClusters(radius, samples, callbackOnNewCluster)
 }
 ////////////////// end FOREL clusterization stuff 
 
+////////////////// Unnormalized ANFIS model stuff
+function UnormAnfis(pointDimension, rulesCount)
+{
+	this.pointDimension = pointDimension;
+	this.rulesCount = rulesCount;
+	
+		// rule entry: (a list, q list, k list), b single
+		
+	this.ruleEntrySize = 3 * pointDimension + 1; 
+}
+
+UnormAnfis.prototype.useParameters = function(parametersArray)
+{
+		// parameters: if 2d layout, rows are rule entries
+		
+	this.modelParameters = parametersArray;
+	
+	return this;
+}
+
+UnormAnfis.prototype.useTabPoints = function(pointsDataArray)
+{
+        // argument array contains no known output (just X, not X:Y)
+	    // if 2d layout, rows are different points
+	    
+    this.currentTabPoints = pointsDataArray;
+    
+    var previousPointsCount = this.currentTabPointsCount;
+    
+    this.currentTabPointsCount = pointsDataArray.length / this.pointDimension;
+    
+    if(previousPointsCount != this.currentTabPointsCount)
+    {
+        this.currentTabOutput = new Float64Array(this.currentTabPointsCount);
+        this.needRecreateTemps = true;    
+    }
+    
+	return this;		
+}
+
+UnormAnfis.prototype.evauateTabPoints = function()
+{
+	// finds model output for current tab points 
+	// (used in direct application)
+    
+	var pointsCount = this.currentTabPointsCount;	
+	var rulesCount = this.rulesCount;
+	var ruleEntrySize = this.ruleEntrySize;
+	var pointDimension = this.pointDimension;
+	var modelParameters = this.modelParameters;
+	
+	var X = this.currentTabPoints;
+	var Y = this.currentTabOutput;
+	
+	var point_offset = 0;
+    
+	for(var p = 0; p < pointsCount; ++p)
+	{
+		var s = 0;
+		
+		var rule_offset = 0; 
+		
+		var q_offset = pointDimension;
+		var k_offset = 2 * pointDimension;
+		var b_offset = 3 * pointDimension;
+		
+		for(var r = 0; r < rulesCount; ++r)
+		{
+			var muProduct = 0;
+									
+			var L = modelParameters[b_offset];
+						
+			for(var i = 0; i < pointDimension; ++i)
+			{
+				var arg = X[point_offset + i];
+
+				var a = modelParameters[rule_offset + i];
+				var q = modelParameters[q_offset + i];
+				
+				var t = (arg - a) / q;
+				
+				muProduct -= t * t;
+				
+				L += arg * modelParameters[k_offset + i];				
+			}
+			
+			muProduct = Math.exp(muProduct);
+			
+			s += L * muProduct;			
+			
+			rule_offset += ruleEntrySize;
+			
+			q_offset += ruleEntrySize;
+			k_offset += ruleEntrySize;
+			b_offset += ruleEntrySize;
+		}	
+		
+		Y[p] = s;
+		
+		point_offset += pointDimension;	
+	}
+		
+	return this;
+}
+
+UnormAnfis.prototype.useKnownOutput = function(outputDataArray)
+{
+        // argument array length must be consistent with current tab points count
+        
+	this.currentKnownOutput = outputDataArray;
+	
+	return this;
+}
+
+UnormAnfis.prototype.evaluateError = function()
+{			
+	var e = 0;
+	
+	var count = this.currentTabPointsCount;
+	
+	var y1 = this.currentKnownOutput;
+	var y2 = this.currentTabOutput;
+	
+	for(var i = 0; i < count; ++i)
+	{		
+		var d = y2[i] - y1[i];
+		
+		e += d * d; 		
+	}
+	
+	this.currentError = e;
+	
+	return this;
+}
+
+UnormAnfis.prototype.evaluateErrfGrad = function(errfGrad)
+{
+	// this method is used only in optimization (training) procedures 
+	
+	// argument is plain array of entries corresponding to ANFIS parameters
+	//  (its length is rulesCount * ruleEntrySize)
+		
+	var pointsCount = this.currentTabPointsCount;	
+	var rulesCount = this.rulesCount;
+	var ruleEntrySize = this.ruleEntrySize;
+	var pointDimension = this.pointDimension;
+	var modelParameters = this.modelParameters;
+	
+	var X = this.currentTabPoints;
+	var Y = this.currentKnownOutput;
+    
+	if(this.needRecreateTemps)
+	{
+		this.products = new Float64Array(pointsCount * rulesCount);
+		this.linears = new Float64Array(this.products.length);
+		this.errs =  new Float64Array(pointsCount);
+				
+		this.needRecreateTemps = false;
+	}
+    
+	var products = this.products;
+	var linears = this.linears;	
+	var errs = this.errs;	
+		
+	var currentError = 0;
+    
+        // evaluate temps first,
+        // dispatch for [points count x rules count],
+        // if 2d layout, rows are for points, cols are for rules
+    	
+	var point_offset = 0;
+	
+	var point_rule_offset = 0;
+
+	var q_offset;
+	var k_offset;
+	var b_offset;
+	
+	for(var i = 0; i < pointsCount; ++i)
+	{			
+		var s = 0;		
+				
+		var rule_offset = 0; 
+		
+		q_offset = pointDimension;
+		k_offset = 2 * pointDimension;
+		b_offset = 3 * pointDimension;
+	
+		for(var r = 0; r < rulesCount; ++r)
+		{			
+			var muProduct = 0;
+			
+			var L = modelParameters[b_offset];
+
+			for(var m = 0; m < pointDimension; ++m)
+			{
+				var arg = X[point_offset + m];
+
+				var a = modelParameters[rule_offset + m];
+				var q = modelParameters[q_offset + m];
+				
+				var t = (arg - a) / q;
+								
+				muProduct -= t * t;
+				
+				L += arg * modelParameters[k_offset + m];								
+			}	
+						
+			muProduct = Math.exp(muProduct);
+			
+			products[point_rule_offset] = muProduct; 
+			linears[point_rule_offset] = L;
+			
+			s += muProduct * L;
+			
+			rule_offset += ruleEntrySize;
+			
+			q_offset += ruleEntrySize;
+			k_offset += ruleEntrySize;
+			b_offset += ruleEntrySize;	
+			
+			++point_rule_offset;		
+		}
+	
+		var d = s - Y[i];
+		
+		errs[i] = d;		
+		currentError += d * d; 
+
+		point_offset += pointDimension;			
+	}
+	
+	this.currentError = currentError;
+    
+        // having temps done, evaluate errf grad,
+        // dispatch for [rules count x point dimension] 
+        // if 2d layout, rows are for rules, cols are for points
+	
+	rule_offset = 0;
+	
+	q_offset = pointDimension;
+	k_offset = 2 * pointDimension;
+	b_offset = 3 * pointDimension;
+	
+	for(var r = 0; r < rulesCount; ++r)
+	{
+			// rule entry {{a, q, k}, b}
+
+			// br		
+		var sBr = 0;
+
+			// arm, qrm, krm
+		for(var m = 0; m < pointDimension; ++m)
+		{
+			var sArm = 0;
+			var sQrm = 0;
+			var sKrm = 0;
+			
+			var sFactorArm;
+			var sFactorQrm;
+			
+			var arm = modelParameters[rule_offset + m];
+			var qrm = modelParameters[q_offset + m];
+				
+			sFactorArm = 4 / (qrm * qrm);
+			sFactorQrm = sFactorArm / qrm; 				
+
+			point_offset = 0;
+			point_rule_offset = r;
+			
+			for(var i = 0; i < pointsCount; ++i)
+			{
+				var xm = X[point_offset + m];
+				
+				var t2 = xm - arm;
+				var t3 = products[point_rule_offset] * errs[i];
+				
+				var t6 = t2 * t3 * linears[point_rule_offset]; 
+				
+				sArm += t6; 
+				sQrm += t2 * t6;
+				
+				sKrm += xm * t3;
+				
+				if(m === 0)
+				{
+					sBr += t3;	
+				}				
+									
+				point_offset += pointDimension;
+				point_rule_offset += rulesCount;
+			}																			 	
+			
+			errfGrad[rule_offset + m] = sFactorArm * sArm;
+			errfGrad[q_offset + m] = sFactorQrm * sQrm;	
+			errfGrad[k_offset + m] = 2 * sKrm;
+		}
+							
+		errfGrad[b_offset] = 2 * sBr;
+		
+		rule_offset += ruleEntrySize;
+		
+		q_offset += ruleEntrySize;
+		k_offset += ruleEntrySize;
+		b_offset += ruleEntrySize;		
+	}
+		
+	return this;	
+}
+////////////////// end of Unorm ANFIS model stuff
+
+////////////////// LBFGS procedures stuff
+function AntigradientLbfgs(problemDimension, historySize)
+{	
+	this.problemDimension = problemDimension;
+	this.historySize = (historySize !== undefined) ? historySize : 10;
+    
+		// ping-pong indices 
+	this.ppCurrent = 0;
+	this.ppNext = 1;
+	
+		// history entries
+	this.historyS = [];
+	this.historyY = [];
+	
+	this.historyA = [];
+			
+	this.historyInnerProductsSY = [];
+		
+	for(var i = 0; i < this.historySize; ++i)
+	{
+		this.historyS[i] = new Float64Array(problemDimension);
+		this.historyY[i] = new Float64Array(problemDimension);						
+	}
+		
+		// argument
+	this.X = [];
+	
+	this.X[this.ppNext] = new Float64Array(problemDimension);
+		
+		// goal function value
+	this.f = [];	
+			
+		// gradient
+	this.Grad = [];
+
+	this.Grad[this.ppCurrent] = new Float64Array(problemDimension);
+	this.Grad[this.ppNext] = new Float64Array(problemDimension);
+		
+		//
+	this.p = new Float64Array(problemDimension);
+		
+		//
+	this.epsilon = 0.001;
+	
+	this.reset();
+}
+
+AntigradientLbfgs.prototype.useGradientProvider = function(fillGradient)
+{
+	// fillGradient(vectorX, gradArray), returns f_X
+	
+	this.gradF = fillGradient;
+	
+	return this; 
+}
+
+AntigradientLbfgs.prototype.useInitialArgument = function(initialArray)
+{	
+	this.X[this.ppCurrent] = initialArray;
+			
+	return this;
+}
+
+AntigradientLbfgs.prototype.useEpsilon = function(someSmallEpsilon)
+{
+	this.epsilon = someSmallEpsilon;
+	
+	return this;
+}
+
+AntigradientLbfgs.prototype.innerProduct = function(v1, v2)
+{
+	// returns v1 * v2, inner product, scalar
+	
+	var s = 0;
+
+	var problemDimension = this.problemDimension;
+		
+	for(var i = 0; i < problemDimension; ++i)
+	{
+		s += v1[i] * v2[i];		
+	}	
+	
+	return s;
+}
+
+AntigradientLbfgs.prototype.linearVectorExpression = function(v0, scalar, v1, result)
+{
+	// result = v0 + scalar * v1;
+
+	var problemDimension = this.problemDimension;
+		
+	for(var i = 0; i < problemDimension; ++i)
+	{
+		result[i] = v0[i] + scalar * v1[i];		
+	}	
+	
+	return result;
+} 
+
+AntigradientLbfgs.prototype.scaleVector = function(scalar, v, result)
+{
+	// result = scalar * v;
+
+	var problemDimension = this.problemDimension;
+		
+	for(var i = 0; i < problemDimension; ++i)
+	{
+		result[i] = scalar * v[i];		
+	}	
+	
+	return result;
+} 
+
+AntigradientLbfgs.prototype.vectorDifference = function(v1, v2, result)
+{
+	// result = v1 - v2;
+
+	var problemDimension = this.problemDimension;
+		
+	for(var i = 0; i < problemDimension; ++i)
+	{
+		result[i] = v1[i] - v2[i];		
+	}	
+	
+	return result;
+} 
+
+AntigradientLbfgs.prototype.reset = function()
+{
+	this.firstStep = true;
+	
+	this.diverged = false;
+	this.local = false;
+	this.weird = false;
+	
+	this.stepsDone = 0;
+	
+	return this;
+}
+
+AntigradientLbfgs.prototype.linearSearch = function(maxSteps)
+{
+        // Nocedal, Wright, Numerical Optimization, p. 61
+        
+	const c1 = 0.0001;
+	const c2 = 0.9;
+	
+	const alphaGrowFactor = 3;
+	
+	var alpha = 1;
+	var alphaLatch = alpha;
+	
+	var steps = 0;
+	
+	var mustReturn = false;
+	
+	var previousStepWasGood = false;
+	
+	var wolfeOk;
+	
+	var fCurrent = this.f[this.ppCurrent];
+	var fNext;
+	var fMin = fCurrent;
+	
+	for(;;)
+	{	
+		this.linearVectorExpression
+		(
+			this.X[this.ppCurrent], 
+			alpha, 
+			this.p, 
+			this.X[this.ppNext]
+		);
+		
+		fNext = this.f[this.ppNext] = this.gradF
+		(
+			this.X[this.ppNext],
+			this.Grad[this.ppNext]
+		);
+		
+		if(mustReturn)
+		{
+			break;
+		}
+		
+		var wolfeTmpProduct = this.innerProduct
+		(
+			this.p, 
+			this.Grad[this.ppCurrent]
+		);
+		
+		var absWolfeTmpProduct = Math.abs(wolfeTmpProduct);
+						
+		var wolfe1 = (fNext <= (fCurrent + c1 * alpha * wolfeTmpProduct));  
+		
+		var absWolfeTmpProductNext = Math.abs
+		(
+			this.innerProduct(this.p, this.Grad[this.ppNext])
+		);
+			
+		var wolfe2 = (absWolfeTmpProductNext <= c2 * absWolfeTmpProduct);
+		
+		wolfeOk = wolfe1 && wolfe2;			
+		
+		++steps;
+
+		if(steps >= maxSteps)
+		{
+			if(wolfeOk)
+			{
+				break;
+			}
+			else
+			{
+				mustReturn = true;
+				
+					// no more steps, just restore good alpha;
+					// cycle will break after grad evaluation
+					
+				if(previousStepWasGood)
+				{
+					alpha = alphaLatch;	
+				}	
+			}										
+		}				
+		else
+		{
+			var alphaFactor = alphaGrowFactor + (-1 + 2 * Math.random());
+			
+			if(wolfeOk)
+			{
+			    break;
+			    /*
+					// store good alpha ...
+				alphaLatch = alpha;
+				
+					// ... and try greater alpha value
+				alpha *= alphaFactor;	
+				
+				previousStepWasGood = true;									
+				*/
+			}
+			else if(!previousStepWasGood)
+			{
+					// use smaller value
+				alpha /= alphaFactor;										
+			}
+			else
+			{
+				mustReturn = true;
+				
+					// f value gone bad, just restore good alpha;
+					// cycle will break after grad evaluation
+				alpha = alphaLatch;	
+				
+				wolfeOk = true;										
+			}						
+		}			
+					
+	} // end for(;;)
+	
+	return wolfeOk;
+}
+
+AntigradientLbfgs.prototype.makeInitialSteps = function(stepsToReport, linearSearchStepsCount)
+{
+	var dimension = this.problemDimension;
+
+	var m = this.historySize;
+	var newestEntryIdex = m - 1;
+	
+	// fill history entries
+	
+	if(this.firstStep)
+	{
+		this.f[this.ppCurrent] = this.gradF
+		(
+			this.X[this.ppCurrent],
+			this.Grad[this.ppCurrent]			
+		);	
+		
+		this.firstStep = false;
+	}
+
+	for(var i = 0; i < m; ++i)
+	{
+	    this.stepsDone++;
+	    
+		for(var j = 0; j < dimension; ++j)
+		{
+			this.p[j] = -this.Grad[this.ppCurrent][j];
+		}
+
+		this.linearSearch(linearSearchStepsCount);	
+        
+        //*
+		if(isNaN(this.f[this.ppNext]))
+		{
+			this.weird = true;
+		}
+		
+		if(this.f[this.ppCurrent] < this.f[this.ppNext])
+		{
+			this.diverged = true;
+		}
+		
+		if(this.weird || this.diverged)
+		{
+				// reset model to good point
+			this.gradF
+			(
+				this.X[this.ppCurrent],
+				this.Grad[this.ppCurrent]			
+			);		
+			
+			break;
+		}		
+        
+		if(Math.abs(this.f[this.ppCurrent] - this.f[this.ppNext]) < this.epsilon)
+		{
+			this.local = true;
+			break;
+		}		
+        //*/
+			//
+		this.vectorDifference
+		(
+			this.X[this.ppNext], 
+			this.X[this.ppCurrent], 
+			this.historyS[i]
+		);			 
+
+		this.vectorDifference
+		(
+			this.Grad[this.ppNext], 
+			this.Grad[this.ppCurrent], 
+			this.historyY[i]
+		);	
+		
+			//
+		this.historyInnerProductsSY[i] = this.innerProduct
+		(
+			this.historyS[i], 
+			this.historyY[i]
+		);		 
+
+		if(i === newestEntryIdex)
+		{
+			var denominator = this.innerProduct
+			(
+				this.historyY[i], 
+				this.historyY[i]
+			);		 
+			
+			this.previousStepInnerProductsSYYY = this.historyInnerProductsSY[i] / denominator;	
+		}
+			
+			// report, if needed		
+		var reportedStep = i + 1;
+			
+		if(reportedStep % stepsToReport === 1)
+		{
+			this.reportProgress("lbfgs init", reportedStep, this.f[this.ppNext]);
+		}							
+			
+			// swap ping-pong indices
+		this.ppCurrent = 1 - this.ppCurrent;
+		this.ppNext = 1 - this.ppNext; 
+	}
+	
+	return this;
+}
+
+AntigradientLbfgs.prototype.lbfgsTwoLoops = function()
+{
+	var dimension = this.problemDimension;
+	var m = this.historySize;
+	
+	// calcs new direction p
+	
+	for(var i = 0; i < dimension; ++i)
+	{
+		this.p[i] = -this.Grad[this.ppCurrent][i];
+	}
+	
+		// from current to past
+	for(var i = m - 1; i >= 0; --i)
+	{
+		var numerator = this.innerProduct
+		(
+			this.historyS[i], 
+			this.p
+		);
+		
+		var a = this.historyA[i] = numerator / this.historyInnerProductsSY[i];
+		
+		this.linearVectorExpression
+		(
+			this.p,
+			-a,
+			this.historyY[i],
+			this.p 
+		);		
+	}
+		
+	this.scaleVector(this.previousStepInnerProductsSYYY, this.p, this.p);
+	
+		// from past to current
+	for(var i = 0; i < m; ++i)
+	{
+		var numerator = this.innerProduct
+		(
+			this.historyY[i], 
+			this.p
+		);
+
+		var b = numerator / this.historyInnerProductsSY[i];
+
+		this.linearVectorExpression
+		(
+			this.p,
+			this.historyA[i] - b,
+			this.historyS[i],
+			this.p 
+		);				
+	}
+	
+	return this;
+}
+
+AntigradientLbfgs.prototype.makeStepsLbfgs = function
+	(
+		stepsToReport,
+		stepsCount, 
+		linearSearchStepsCount
+	)
+{
+	var m = this.historySize;	
+	
+	this.makeInitialSteps(stepsToReport, linearSearchStepsCount);
+	
+	if(this.weird || this.diverged || this.local)
+	{
+		return this.X[this.ppCurrent];
+	}	
+	
+	for(var step = 0; step < stepsCount; ++step)
+	{
+	    this.stepsDone++;
+	    
+			// do L-BFGS stuff
+		this.lbfgsTwoLoops();
+			
+			//
+		this.linearSearch(linearSearchStepsCount);	
+		
+		//*
+		if(isNaN(this.f[this.ppNext]))
+		{
+			this.weird = true;
+		}
+		
+		if(this.f[this.ppCurrent] < this.f[this.ppNext])
+		{
+			this.diverged = true;			
+		}
+		
+		if(this.weird || this.diverged)
+		{
+				// reset model to good point
+			this.gradF
+			(
+				this.X[this.ppCurrent],
+				this.Grad[this.ppCurrent]			
+			);		
+			
+			break;
+		}		
+        
+		if(Math.abs(this.f[this.ppCurrent] - this.f[this.ppNext]) < this.epsilon)
+		{
+			this.local = true;
+			break;
+		}		
+		//*/
+			// forget the oldest history entry, shift from past to current			
+				
+		var oldestS = this.historyS[0];
+		var oldestY = this.historyY[0];
+		
+		var newestEntryIdex = m - 1;
+		
+		for(var i = 0; i < newestEntryIdex; ++i)
+		{
+			var next = i + 1;
+			
+				// (we only re-assign pointers to arrays)
+			this.historyS[i] = this.historyS[next];
+			this.historyY[i] = this.historyY[next];
+			 
+			this.historyA[i] = this.historyA[next];
+			this.historyInnerProductsSY[i] = this.historyInnerProductsSY[next];
+		}	
+		
+			// (we only re-assign pointers to arrays)
+		this.historyS[newestEntryIdex] = oldestS;
+		this.historyY[newestEntryIdex] = oldestY; 
+		
+			// update newest stuff
+			
+		this.vectorDifference
+		(
+			this.X[this.ppNext], 
+			this.X[this.ppCurrent], 
+			this.historyS[newestEntryIdex]
+		);			 
+
+		this.vectorDifference
+		(
+			this.Grad[this.ppNext], 
+			this.Grad[this.ppCurrent], 
+			this.historyY[newestEntryIdex]
+		);	
+		
+			//
+		this.historyInnerProductsSY[newestEntryIdex] = this.innerProduct
+		(
+			this.historyS[newestEntryIdex], 
+			this.historyY[newestEntryIdex]
+		);		 
+
+		var denominator = this.innerProduct
+		(
+			this.historyY[newestEntryIdex], 
+			this.historyY[newestEntryIdex]
+		);		 
+
+		this.previousStepInnerProductsSYYY = this.historyInnerProductsSY[newestEntryIdex] / denominator;	 			
+			
+			// swap ping-pong indices
+		this.ppCurrent = 1 - this.ppCurrent;
+		this.ppNext = 1 - this.ppNext; 
+		
+			// report, if needed		
+		var reportedStep = step + 1;
+			
+		if(reportedStep % stepsToReport === 1)
+		{
+			this.reportProgress("lbfgs", reportedStep, this.f[this.ppCurrent]);
+		}							
+	}
+		
+	return this.X[this.ppCurrent];
+}
+
+AntigradientLbfgs.prototype.useOnProgress = function(callbackProgress)
+{
+	this.callbackProgress = callbackProgress;
+	
+	return this;
+}
+
+AntigradientLbfgs.prototype.reportProgress = function(phase, step, fCurrent)
+{
+	if(this.callbackProgress !== undefined)
+	{
+		this.callbackProgress(phase, step, fCurrent);
+	}
+	
+	return this;	
+}
+//////////////////  end of LBFGS procedures stuff
+
+////////////////// LBFGS-for-ANFIS optimization stuff   
+function trainWithLbfgs(arg, onLbfgsProgressCallback)
+{
+    var anfis = new UnormAnfis(arg.pointDimension, arg.anfisRulesCount);
+    
+    anfis.useParameters(arg.anfisParameters);
+    anfis.useTabPoints(arg.tabPoints);
+    anfis.useKnownOutput(arg.knownOutput);
+    anfis.evauateTabPoints();
+    anfis.evaluateError();
+    
+    var initialError = anfis.currentError;
+
+    var lbfgs = new AntigradientLbfgs(arg.anfisParameters.length, arg.lbfgsHistorySize);
+    
+    lbfgs.useInitialArgument(arg.anfisParameters);
+    
+    lbfgs.useGradientProvider(function(vectorX, gradArray){
+        
+        anfis.useParameters(vectorX);  
+        
+        anfis.evaluateErrfGrad(gradArray);
+        
+        return anfis.currentError;
+    });
+    
+    lbfgs.useEpsilon(arg.epsilon);
+    
+    lbfgs.useOnProgress(onLbfgsProgressCallback);
+        
+    lbfgs.reset();
+    
+    var optX = lbfgs.makeStepsLbfgs(arg.reportSteps, arg.lbfgsSteps, arg.linearSearchStepsCount);
+    
+    return {
+        optX: optX, 
+        weird: lbfgs.weird, 
+        diverged: lbfgs.diverged, 
+        local: lbfgs.local, 
+        error: anfis.currentError, 
+        stepsDone: lbfgs.stepsDone, 
+        initialError: initialError
+    };
+}
+////////////////// end LBFGS-for-ANFIS optimization stuff   
+    
     onmessage = function(e)
     {
         var arg = e.data;
@@ -1148,8 +2310,48 @@ function buildClusters(radius, samples, callbackOnNewCluster)
             
             postMessage(result);
         }
+        else if(arg.proc === 'optimize')
+        {
+            var timeStart = Date.now();
+
+            try
+            {
+                var stuff = 
+                {
+                    pointDimension: arg.model.xDimension,
+                    anfisRulesCount: arg.model.rulesCount,       
+                    anfisParameters: arg.model.parameters,
+                    tabPoints: arg.xandyTrainSet.X,
+                    knownOutput: arg.xandyTrainSet.Y,
+                    epsilon: arg.lbfgsArgs.epsilon,
+                    lbfgsHistorySize: arg.lbfgsArgs.lbfgsHistorySize,
+                    lbfgsSteps: arg.lbfgsArgs.lbfgsIterationsCount,
+                    linearSearchStepsCount: arg.lbfgsArgs.linearSearchStepsCount,
+                    reportSteps: arg.lbfgsArgs.lbfgsReportStepsCount
+                };
+                
+                function onProgress(phase, step, fCurrent)
+                {
+                    result.progress = {phase: phase, step: step, fCurrent: fCurrent};
+                    
+                    postMessage(result);
+                }
+                
+                result.lbfgsResult = trainWithLbfgs(stuff, onProgress);         
+            }
+            catch(e)
+            {
+                result.error = e;
+            }
+
+            result.timeWorked = Date.now() - timeStart;
+            
+            delete result.progress; // if any
+            
+            postMessage(result);
+        }
     }
-}
+}       // end of worker entry
 
 experimentService.prototype.onWorkerMessage = function(e)
 {
@@ -1157,28 +2359,71 @@ experimentService.prototype.onWorkerMessage = function(e)
     
     var entry = this;
     
-    var deferred = entry.deferredInvocationQueue.pop();
+    var workerTaskContext = entry.workerTasks[arg.workerTaskKey];
     
-    if(deferred)
+    if(arg.progress)
     {
-        entry.workers.invoke(arg.workerId, deferred.task);
+        if(workerTaskContext.progressCallback)
+        {
+            workerTaskContext.progressCallback(arg.progress);    
+        }
     }
     else
     {
-        entry.workers.dismiss(arg.workerId);
-    }    
-    
-    var workerTaskContext = entry.workerTasks[arg.workerTaskKey];
-    
-    delete entry.workerTasks[arg.workerTaskKey];
-    
-    if(arg.clusters)
-    {
-        workerTaskContext.resolve(arg.clusters);
+            // issue next task, or dismiss:
+            
+        var deferred = entry.deferredInvocationQueue.pop();
+        
+        if(deferred)
+        {
+            entry.workers.invoke(arg.workerId, deferred.task);
+        }
+        else
+        {
+            entry.workers.dismiss(arg.workerId);
+        }    
+            // task is over, remove current task context:
+            
+        delete entry.workerTasks[arg.workerTaskKey];
+        
+            // resolve or reject task promises:
+            
+        if(arg.clusters)
+        {
+            workerTaskContext.resolve(arg.clusters);
+        }
+        else if(arg.lbfgsResult)
+        {
+            workerTaskContext.resolve(arg.lbfgsResult);
+        }
+        else if(arg.error)
+        {
+            workerTaskContext.reject(arg.error);
+        }
     }
-    else if(arg.error)
+}
+
+experimentService.prototype.dispatchTask = function(taskContext)
+{
+    var entry = this;
+    
+    var workerTaskKey = entry.workerTaskToken.toString();
+    
+    taskContext.task.workerTaskKey = workerTaskKey;
+    
+    ++entry.workerTaskToken;
+    
+    entry.workerTasks[workerTaskKey] = taskContext;
+    
+    var idle = entry.workers.findIdleIndex();
+    
+    if(idle < 0)
     {
-        workerTaskContext.reject(arg.error);
+        entry.deferredInvocationQueue.push(taskContext);
+    }
+    else
+    {
+        entry.workers.invoke(idle, taskContext.task);    
     }
 }
 
@@ -1188,29 +2433,28 @@ experimentService.prototype.promiseClusterize = function(dataBulk, radius)
     
     return new Promise((resolve, reject) => 
     {
-        var workerTaskKey = entry.workerTaskToken.toString();
-        
-        ++entry.workerTaskToken;
-        
-        var workerTaskContext = 
-        {
-            task: {workerTaskKey: workerTaskKey, proc: 'clusterize', radius: radius, samples: dataBulk},    
+        entry.dispatchTask
+        ({
+            task: {proc: 'clusterize', radius: radius, samples: dataBulk},    
             resolve: resolve,
             reject: reject
-        };
-        
-        entry.workerTasks[workerTaskKey] = workerTaskContext;
-        
-        var idle = entry.workers.findIdleIndex();
-        
-        if(idle < 0)
-        {
-            entry.deferredInvocationQueue.push(workerTaskContext);
-        }
-        else
-        {
-            entry.workers.invoke(idle, workerTaskContext.task);    
-        }
+        });
+    });
+}
+
+experimentService.prototype.promiseOptimize = function(model, xandyTrainSet, lbfgsArgs, progressCallback)
+{
+    var entry = this;
+    
+    return new Promise((resolve, reject) => 
+    {
+        entry.dispatchTask
+        ({
+            task: {proc: 'optimize', model: model, xandyTrainSet: xandyTrainSet, lbfgsArgs: lbfgsArgs}, 
+            progressCallback: progressCallback,
+            resolve: resolve,
+            reject: reject
+        });
     });
 }
 
