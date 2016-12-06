@@ -64,7 +64,7 @@ function MainController($scope, interService, socket, taskStorageService, modelD
 
     vm.qFactorFieldCaption = 'Q factor';
     vm.qFactorAriaLabel = vm.qFactorFieldCaption;
-    vm.qFactorMin = 1;
+    vm.qFactorMin = 0.1;
     vm.qFactorStep = 0.1;
 
     vm.anfisRulesCountFieldCaption = 'ANFIS rules count';
@@ -248,7 +248,7 @@ function MainController($scope, interService, socket, taskStorageService, modelD
         {
             var editedFieldValue = vm[key];
             
-            model[key] = editedFieldValue ? editedFieldValue : vm.modelPattern[key];
+            model[key] = (editedFieldValue !== undefined) ? editedFieldValue : vm.modelPattern[key];
         });
         
         return model;
@@ -462,6 +462,9 @@ function TaskAnalysisController
     tan.lbfgsRawErrorTitle = 'Raw error:';
     tan.lbfgsErrorProgressAriaLabel = tan.lbfgsRawErrorTitle;
     
+    tan.lbfgsClassifierErrorTitle = 'Classifier error:';
+    tan.lbfgsClassifierErrorProgressAriaLabel = tan.lbfgsClassifierErrorTitle;
+    
     tan.buttonStopLbfgsCaption = 'Stop';
     tan.buttonStopLbfgsAriaLabel = 'Stop L-BFGS training';
 
@@ -514,6 +517,7 @@ function TaskAnalysisController
         tan.phaseAnalysisInProgress = false;
         tan.phaseAnalyse = false;
         tan.phaseTrainingInProgress = false;
+        tan.phaseTrainingDone = false;
         
         csvDataStorageService.promiseCsvData(tan.taskModel.trainDataPath, tan.trainDataDownloadProgressCallback)
         .then(csvDataStorageService.promiseRecordsArray) 
@@ -568,6 +572,19 @@ function TaskAnalysisController
             var trainZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(trainRanges);
             var testZeroDispersedFieldsCount = experimentService.countZeroDispersedFields(testRanges);
             
+            if(trainZeroDispersedFieldsCount > 0)
+            {
+                tan.trainDataBulk = experimentService.removeZeroDispersedFields(tan.trainDataBulk, trainRanges);
+                    
+                    // need sync test dataset, so remove the same fields (using trainRanges)
+                tan.testDataBulk = experimentService.removeZeroDispersedFields(tan.testDataBulk, trainRanges);
+                
+                    // need sync ranges, too
+                var tmp = experimentService.removeZeroRanges(trainRanges, trainRanges);
+                testRanges = experimentService.removeZeroRanges(testRanges, trainRanges);
+                trainRanges = tmp;
+            }
+            
             var trainClasses = experimentService.countRecordsOfDifferentClasses(tan.trainDataBulk);
             var testClasses = experimentService.countRecordsOfDifferentClasses(tan.testDataBulk);
             
@@ -582,6 +599,8 @@ function TaskAnalysisController
             ];
             
             experimentService.normalize(tan.trainDataBulk, trainRanges);
+                // normalize test dataset to train ranges
+            experimentService.normalize(tan.testDataBulk, trainRanges);
             
             tan.relPercentRadius = 20;
             tan.relPercentAmplitude = 50;
@@ -657,18 +676,24 @@ function TaskAnalysisController
     
     tan.lbfgsProgressCallback = function(lbfgsProgressInfo)
     {
+        tan.lbfgsErrorProgress = lbfgsProgressInfo.fCurrent.toFixed(2);
+        
+        tan.classifierProgressClass = (lbfgsProgressInfo.testResult.err < tan.taskModel.acceptableErrorThreshold) ? 
+            'progress-bar progress-bar-primary' : 'progress-bar progress-bar-warning';
+        
+        tan.lbfgsClassifierErrorProgress = (lbfgsProgressInfo.testResult.err * 100).toFixed(2);
+        
         if(lbfgsProgressInfo.step === 1)
         {
-            tan.lbfgsErrorValueMax = lbfgsProgressInfo.fCurrent.toFixed(2);
+            tan.lbfgsErrorValueMax = tan.lbfgsErrorProgress;
+            tan.lbfgsClassifierErrorValueMax = tan.lbfgsClassifierErrorProgress;
         }
-        
-        tan.lbfgsErrorProgress = lbfgsProgressInfo.fCurrent.toFixed(2);
         
         tan.lbfgsProgress = lbfgsProgressInfo.step;
         
         $scope.$apply();
         
-        console.log(lbfgsProgressInfo);    
+        //console.log(lbfgsProgressInfo);    
     }
     
     tan.getTrainButtonClass = function()
@@ -696,7 +721,13 @@ function TaskAnalysisController
             tan.taskModel.clusterizationRadius
         );
         
-        var xandyTrainSet = experimentService.splitBulkToArgsAndOutput(tan.mappedTrainBulk)
+        anfisModel.ySeparator = tan.taskModel.ySeparator;
+        
+        var xandyTrainSet = experimentService.splitBulkToArgsAndOutput(tan.mappedTrainBulk);
+        
+        experimentService.mapOutput(tan.testDataBulk, tan.taskModel.yAmplitude, 0.5, tan.taskModel.ySeparator);
+        
+        var xandyTestSet = experimentService.splitBulkToArgsAndOutput(tan.testDataBulk);
         
         var lbfgsArgs = 
         {
@@ -708,15 +739,27 @@ function TaskAnalysisController
         };
         
         tan.phaseTrainingInProgress = true;
+        tan.phaseTrainingDone = false;
         
-        experimentService.promiseOptimize(anfisModel, xandyTrainSet, lbfgsArgs, tan.lbfgsProgressCallback)
+        experimentService.promiseOptimize(anfisModel, xandyTrainSet, xandyTestSet, lbfgsArgs, tan.lbfgsProgressCallback)
         .then(lbfgsResult => 
         {
             experimentService.terminateWorkers();
             
             tan.phaseTrainingInProgress = false;
+            tan.phaseTrainingDone = true;
             
             tan.lbfgsProgress = lbfgsResult.stepsDone;
+            
+            tan.lbfgsWeird = (lbfgsResult.weird ? 'weird' : undefined);
+            tan.lbfgsDiverged = (lbfgsResult.diverged ? 'diverged' : undefined);
+            tan.lbfgsLocal = (lbfgsResult.local ? 'local' : undefined);
+
+            tan.classifierProgressClass = (lbfgsResult.testResult.err < tan.taskModel.acceptableErrorThreshold) ? 
+                'progress-bar progress-bar-primary' : 'progress-bar progress-bar-warning';
+
+            tan.classifierError = (lbfgsResult.testResult.err * 100).toFixed(2);
+            tan.education = ((1 - lbfgsResult.testResult.err) * 100).toFixed(2);
             
             $scope.$apply();
         })
@@ -1037,6 +1080,58 @@ experimentService.prototype.countZeroDispersedFields = function(ranges)
     return count;
 }
 
+experimentService.prototype.removeZeroDispersedFields = function(dataBulk, ranges)
+{
+    var min = ranges.min;
+    var max = ranges.max;
+    
+    var result = [];
+    
+    dataBulk.forEach(row => 
+    {
+        var newRow = [];
+        
+        row.forEach((value, index) => 
+        {
+            if(min[index] !== max[index])
+            {
+                newRow.push(value);
+            }
+        });
+        
+        result.push(newRow);
+    });    
+    
+    return result;
+}
+
+experimentService.prototype.removeZeroRanges = function(rangesToProcess, referenceRanges)
+{
+    var srcMin = rangesToProcess.min;
+    var srcMax = rangesToProcess.max;
+    
+    var refMin = referenceRanges.min;
+    var refMax = referenceRanges.max;
+    
+    var result = {min: [], max: []};
+
+    var resMin = result.min;
+    var resMax = result.max;
+        
+    srcMin.forEach((valueMin, index) => 
+    {
+        var valueMax = srcMax[index];
+        
+        if(refMin[index] !== refMax[index])
+        {
+            resMin.push(valueMin);
+            resMax.push(valueMax);
+        }
+    });
+    
+    return result;
+}
+
 experimentService.prototype.normalize = function(dataBulk, ranges)
 {
     // ranges: {min: [], max: []};
@@ -1126,6 +1221,10 @@ experimentService.prototype.splitBulkToArgsAndOutput = function(dataBulk)
 
 experimentService.prototype.initAnfisModel = function(clusters, rulesCount, adaptiveRulesCount, qFactor, radius)
 {
+    const mutationRate = 0.1;
+    const mutationMinus = -mutationRate;
+    const mutationPlus = mutationRate;
+    
     var anfisModel = {};
     
     var yIndex = clusters[0].center.length - 1;
@@ -1148,7 +1247,9 @@ experimentService.prototype.initAnfisModel = function(clusters, rulesCount, adap
             // a
         for(var col = 0; col < yIndex; ++col)
         {
-            parameters[parameterIndex] = cluster.center[col];
+            var a = cluster.center[col];
+            a *= (Math.random() < 0.5) ? (1 - mutationRate * Math.random()) : (1 + mutationRate * Math.random());
+            parameters[parameterIndex] = a;
             ++parameterIndex;                    
         }
             // q
@@ -1157,19 +1258,25 @@ experimentService.prototype.initAnfisModel = function(clusters, rulesCount, adap
         
         for(var col = 0; col < yIndex; ++col)
         {
-            parameters[parameterIndex] = q;
+            var qp = q;
+            qp *= (Math.random() < 0.5) ? (1 - mutationRate * Math.random()) : (1 + mutationRate * Math.random());
+            parameters[parameterIndex] = qp;
             ++parameterIndex;                    
         }
             // b
         for(var col = 0; col < yIndex; ++col)
         {
-            parameters[parameterIndex] = 0;
+            var b = 0;
+            b += (Math.random() < 0.5) ? (mutationMinus * Math.random()) : (mutationPlus * Math.random());
+            parameters[parameterIndex] = b;
             ++parameterIndex;                    
         }
             // linear 0
             // y center for this cluster    
-
-        parameters[parameterIndex] = cluster.center[yIndex];
+        
+        var l0 = cluster.center[yIndex];
+        l0 += (Math.random() < 0.5) ? (mutationMinus * Math.random()) : (mutationPlus * Math.random());
+        parameters[parameterIndex] = l0;
         ++parameterIndex;
     }    
     
@@ -2030,7 +2137,7 @@ AntigradientLbfgs.prototype.makeInitialSteps = function(stepsToReport, linearSea
 			
 		if(reportedStep % stepsToReport === 1)
 		{
-			this.reportProgress("lbfgs init", reportedStep, this.f[this.ppNext]);
+			this.reportProgress("lbfgs init", reportedStep, this.f[this.ppNext], this.X[this.ppNext]);
 		}							
 			
 			// swap ping-pong indices
@@ -2216,7 +2323,7 @@ AntigradientLbfgs.prototype.makeStepsLbfgs = function
 			
 		if(reportedStep % stepsToReport === 1)
 		{
-			this.reportProgress("lbfgs", reportedStep, this.f[this.ppCurrent]);
+			this.reportProgress("lbfgs", reportedStep, this.f[this.ppCurrent], this.X[this.ppCurrent]);
 		}							
 	}
 		
@@ -2230,18 +2337,50 @@ AntigradientLbfgs.prototype.useOnProgress = function(callbackProgress)
 	return this;
 }
 
-AntigradientLbfgs.prototype.reportProgress = function(phase, step, fCurrent)
+AntigradientLbfgs.prototype.reportProgress = function(phase, step, fCurrent, xCurrent)
 {
 	if(this.callbackProgress !== undefined)
 	{
-		this.callbackProgress(phase, step, fCurrent);
+		this.callbackProgress(phase, step, fCurrent, xCurrent);
 	}
 	
 	return this;	
 }
 //////////////////  end of LBFGS procedures stuff
 
-////////////////// LBFGS-for-ANFIS optimization stuff   
+////////////////// LBFGS-for-ANFIS optimization stuff
+function testClassifier(currentOutput, knownOutput, ySeparator)
+{
+    var err = 0;
+    var err0 = 0;
+    var err1 = 0;
+    
+    var count = currentOutput.length;
+    
+    currentOutput.forEach((value, index) => 
+    {
+        var ko = (knownOutput[index] < ySeparator) ? 0 : 1;
+        var vo = (value < ySeparator) ? 0 : 1;
+        
+        if(ko !== vo)
+        {
+            ++err;
+        }
+        
+        if((ko === 0) && (vo === 1))
+        {
+            ++err0;
+        }
+        
+        if((ko === 1) && (vo === 0))
+        {
+            ++err1;
+        }
+    });
+    
+    return {err: err/count, err0: err0/count, err1: err1/count};
+}
+
 function trainWithLbfgs(arg, onLbfgsProgressCallback)
 {
     var anfis = new UnormAnfis(arg.pointDimension, arg.anfisRulesCount);
@@ -2316,6 +2455,22 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
 
             try
             {
+                var testAnfis = new UnormAnfis(arg.model.xDimension, arg.model.rulesCount);
+                
+                testAnfis.useTabPoints(arg.xandyTestSet.X);
+                
+                function onProgress(phase, step, fCurrent, xCurrent)
+                {
+                    testAnfis.useParameters(xCurrent);
+                    testAnfis.evauateTabPoints();
+                    
+                    var testResult = testClassifier(testAnfis.currentTabOutput, arg.xandyTestSet.Y, arg.model.ySeparator);
+                    
+                    result.progress = {phase: phase, step: step, fCurrent: fCurrent, xCurrent: xCurrent, testResult: testResult};
+                    
+                    postMessage(result);
+                }
+             
                 var stuff = 
                 {
                     pointDimension: arg.model.xDimension,
@@ -2330,14 +2485,12 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
                     reportSteps: arg.lbfgsArgs.lbfgsReportStepsCount
                 };
                 
-                function onProgress(phase, step, fCurrent)
-                {
-                    result.progress = {phase: phase, step: step, fCurrent: fCurrent};
-                    
-                    postMessage(result);
-                }
+                result.lbfgsResult = trainWithLbfgs(stuff, onProgress);     
                 
-                result.lbfgsResult = trainWithLbfgs(stuff, onProgress);         
+                testAnfis.useParameters(result.lbfgsResult.optX);
+                testAnfis.evauateTabPoints();
+                
+                result.lbfgsResult.testResult = testClassifier(testAnfis.currentTabOutput, arg.xandyTestSet.Y, arg.model.ySeparator);
             }
             catch(e)
             {
@@ -2442,7 +2595,7 @@ experimentService.prototype.promiseClusterize = function(dataBulk, radius)
     });
 }
 
-experimentService.prototype.promiseOptimize = function(model, xandyTrainSet, lbfgsArgs, progressCallback)
+experimentService.prototype.promiseOptimize = function(model, xandyTrainSet, xandyTestSet, lbfgsArgs, progressCallback)
 {
     var entry = this;
     
@@ -2450,7 +2603,14 @@ experimentService.prototype.promiseOptimize = function(model, xandyTrainSet, lbf
     {
         entry.dispatchTask
         ({
-            task: {proc: 'optimize', model: model, xandyTrainSet: xandyTrainSet, lbfgsArgs: lbfgsArgs}, 
+            task: 
+            {
+                proc: 'optimize', 
+                model: model, 
+                xandyTrainSet: xandyTrainSet, 
+                xandyTestSet: xandyTestSet,
+                lbfgsArgs: lbfgsArgs
+            }, 
             progressCallback: progressCallback,
             resolve: resolve,
             reject: reject
