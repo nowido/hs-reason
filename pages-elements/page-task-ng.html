@@ -602,9 +602,39 @@
                                     {{tan.lbfgsErrorProgress}}
                                 </div>
                             </div>
+
+                            <span>{{::tan.lbfgsClassifierErrorTitle}}</span>
+                            <div class="progress">
+                                <div    ng-class="tan.classifierProgressClass" 
+                                        role="progressbar" 
+                                        aria-label="{{::tan.lbfgsClassifierErrorProgressAriaLabel}}"
+                                        aria-valuenow="{{tan.lbfgsClassifierErrorProgress}}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="{{tan.lbfgsClassifierErrorValueMax}}"
+                                        style="min-width: 3em; width: {{tan.lbfgsClassifierErrorProgress / tan.lbfgsClassifierErrorValueMax * 100}}%;">
+                                    {{tan.lbfgsClassifierErrorProgress}}
+                                </div>
+                            </div>
                             
                         </div>
-
+                        
+                        <div class="col-md-8" ng-show="tan.phaseTrainingDone">
+                            
+                            <h4>
+                                <span ng-show="tan.lbfgsDiverged"><span class="glyphicon glyphicon-alert"></span><span>&nbsp;</span><span>{{tan.lbfgsDiverged}}</span></span>
+                                
+                                <span ng-show="tan.lbfgsWeird"><span class="glyphicon glyphicon-question-sign"></span><span>&nbsp;</span><span>{{tan.lbfgsWeird}}</span></span>
+                                
+                                <span ng-show="tan.lbfgsLocal"><span class="glyphicon glyphicon-map-marker"></span><span>&nbsp;</span><span>{{tan.lbfgsLocal}}</span></span>
+                            </h4>
+                            
+                            <h4>
+                                <span class="label label-primary"><span class="glyphicon glyphicon-education"></span><span>&nbsp;</span><span>{{tan.education}}</span></span>
+                                <span class="label label-default"><span class="glyphicon glyphicon-thumbs-down"></span><span>&nbsp;</span><span>{{tan.classifierError}}</span></span>
+                            </h4>
+                            
+                        </div>
+                        
                     </div> <!-- end of L-BFGS stuff --> 
                                         
                 </div> <!-- end modal body -->
