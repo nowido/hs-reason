@@ -447,6 +447,7 @@ function TaskAnalysisController
     tan.testDataDownloadProgressAriaLabel = 'Test dataset download progress';
 
     tan.analysisInProgressHint = 'Analyzing data ... ';
+    tan.lbfgsProcessingInProgressHint = 'Processing ...';
 
     tan.tableHeaderTrain = 'Train data';
     tan.tableHeaderTest = 'Test data';
@@ -459,10 +460,13 @@ function TaskAnalysisController
     tan.lbfgsProgressTitle = 'Done steps:';
     tan.lbfgsProgressAriaLabel = 'L-BFGS training progress';
     
-    tan.lbfgsRawErrorTitle = 'Raw error:';
+    tan.lbfgsRawErrorTitle = 'Raw train error:';
     tan.lbfgsErrorProgressAriaLabel = tan.lbfgsRawErrorTitle;
     
-    tan.lbfgsClassifierErrorTitle = 'Classifier error:';
+    tan.lbfgsTrainClassifierErrorTitle = 'Train error:'
+    tan.lbfgsTrainClassifierErrorProgressAriaLabel = tan.lbfgsTrainClassifierErrorTitle;
+    
+    tan.lbfgsClassifierErrorTitle = 'Test error:';
     tan.lbfgsClassifierErrorProgressAriaLabel = tan.lbfgsClassifierErrorTitle;
     
     tan.buttonStopLbfgsCaption = 'Stop';
@@ -678,15 +682,22 @@ function TaskAnalysisController
     {
         tan.lbfgsErrorProgress = lbfgsProgressInfo.fCurrent.toFixed(2);
         
+        tan.trainClassifierProgressClass = (lbfgsProgressInfo.trainResult.err < tan.taskModel.acceptableErrorThreshold) ? 
+            'progress-bar progress-bar-success' : 'progress-bar progress-bar-warning';
+        
         tan.classifierProgressClass = (lbfgsProgressInfo.testResult.err < tan.taskModel.acceptableErrorThreshold) ? 
             'progress-bar progress-bar-primary' : 'progress-bar progress-bar-warning';
         
+        tan.lbfgsTrainClassifierErrorProgress = (lbfgsProgressInfo.trainResult.err * 100).toFixed(2);
         tan.lbfgsClassifierErrorProgress = (lbfgsProgressInfo.testResult.err * 100).toFixed(2);
         
         if(lbfgsProgressInfo.step === 1)
         {
             tan.lbfgsErrorValueMax = tan.lbfgsErrorProgress;
-            tan.lbfgsClassifierErrorValueMax = tan.lbfgsClassifierErrorProgress;
+            //tan.lbfgsTrainClassifierErrorValueMax = tan.lbfgsTrainClassifierErrorProgress;
+            //tan.lbfgsClassifierErrorValueMax = tan.lbfgsClassifierErrorProgress;
+            tan.lbfgsTrainClassifierErrorValueMax = 50;
+            tan.lbfgsClassifierErrorValueMax = 50;
         }
         
         tan.lbfgsProgress = lbfgsProgressInfo.step;
@@ -721,6 +732,7 @@ function TaskAnalysisController
             tan.taskModel.clusterizationRadius
         );
         
+        anfisModel.yAmplitude = tan.taskModel.yAmplitude;
         anfisModel.ySeparator = tan.taskModel.ySeparator;
         
         var xandyTrainSet = experimentService.splitBulkToArgsAndOutput(tan.mappedTrainBulk);
@@ -754,12 +766,12 @@ function TaskAnalysisController
             tan.lbfgsWeird = (lbfgsResult.weird ? 'weird' : undefined);
             tan.lbfgsDiverged = (lbfgsResult.diverged ? 'diverged' : undefined);
             tan.lbfgsLocal = (lbfgsResult.local ? 'local' : undefined);
-
-            tan.classifierProgressClass = (lbfgsResult.testResult.err < tan.taskModel.acceptableErrorThreshold) ? 
-                'progress-bar progress-bar-primary' : 'progress-bar progress-bar-warning';
-
-            tan.classifierError = (lbfgsResult.testResult.err * 100).toFixed(2);
-            tan.education = ((1 - lbfgsResult.testResult.err) * 100).toFixed(2);
+            
+            //var err = lbfgsResult.testResult.err;
+            var err = lbfgsResult.bestFound.testResult.err;
+            
+            tan.classifierError = (err * 100).toFixed(2);
+            tan.education = ((1 - err) * 100).toFixed(2);
             
             $scope.$apply();
         })
@@ -2135,7 +2147,7 @@ AntigradientLbfgs.prototype.makeInitialSteps = function(stepsToReport, linearSea
 			// report, if needed		
 		var reportedStep = i + 1;
 			
-		if(reportedStep % stepsToReport === 1)
+		if((reportedStep % stepsToReport === 1) || (stepsToReport === 1))
 		{
 			this.reportProgress("lbfgs init", reportedStep, this.f[this.ppNext], this.X[this.ppNext]);
 		}							
@@ -2321,7 +2333,7 @@ AntigradientLbfgs.prototype.makeStepsLbfgs = function
 			// report, if needed		
 		var reportedStep = step + 1;
 			
-		if(reportedStep % stepsToReport === 1)
+		if((reportedStep % stepsToReport === 1) || (stepsToReport === 1))
 		{
 			this.reportProgress("lbfgs", reportedStep, this.f[this.ppCurrent], this.X[this.ppCurrent]);
 		}							
@@ -2349,7 +2361,95 @@ AntigradientLbfgs.prototype.reportProgress = function(phase, step, fCurrent, xCu
 //////////////////  end of LBFGS procedures stuff
 
 ////////////////// LBFGS-for-ANFIS optimization stuff
-function testClassifier(currentOutput, knownOutput, ySeparator)
+
+function testClassifier1(currentOutput, knownOutput, yAmplitude, ySeparator)
+{
+    var err = 0;
+    var err0 = 0;
+    var err1 = 0;
+    
+    var refPointClass0 = ySeparator - yAmplitude;
+    var refPointClass1 = ySeparator + yAmplitude;
+    
+    var count = currentOutput.length;
+    
+    currentOutput.forEach((value, index) => 
+    {
+        var ko = (knownOutput[index] < ySeparator) ? 0 : 1;
+        
+        var d0 = (value - refPointClass0);
+        d0 *= d0;
+        
+        var d1 = (value - refPointClass1);
+        d1 *= d1;
+        
+        var voStrategy1 = (d0 < d1) ? 0 : 1;
+        var voStrategy2 = (value < ySeparator) ? 0 : 1;
+        
+        var vo = (voStrategy1 === voStrategy2) ? voStrategy1 : ((Math.random() < 0.5) ? 0 : 1);
+        
+        if(ko !== vo)
+        {
+            ++err;
+        }
+        
+        if((ko === 0) && (vo === 1))
+        {
+            ++err0;
+        }
+        
+        if((ko === 1) && (vo === 0))
+        {
+            ++err1;
+        }
+    });
+    
+    return {err: err/count, err0: err0/count, err1: err1/count};
+}
+
+function testClassifier(currentOutput, knownOutput, yAmplitude, ySeparator)
+{
+    var err = 0;
+    var err0 = 0;
+    var err1 = 0;
+    
+    var refPointClass0 = ySeparator - yAmplitude;
+    var refPointClass1 = ySeparator + yAmplitude;
+    
+    var count = currentOutput.length;
+    
+    currentOutput.forEach((value, index) => 
+    {
+        var ko = (knownOutput[index] < ySeparator) ? 0 : 1;
+        
+        var d0 = (value - refPointClass0);
+        d0 *= d0;
+        
+        var d1 = (value - refPointClass1);
+        d1 *= d1;
+        
+        var vo = (d0 < d1) ? 0 : 1;
+        
+        if(ko !== vo)
+        {
+            ++err;
+        }
+        
+        if((ko === 0) && (vo === 1))
+        {
+            ++err0;
+        }
+        
+        if((ko === 1) && (vo === 0))
+        {
+            ++err1;
+        }
+    });
+    
+    return {err: err/count, err0: err0/count, err1: err1/count};
+}
+
+function testClassifier2(currentOutput, knownOutput, yAmplitude, ySeparator)
 {
     var err = 0;
     var err0 = 0;
@@ -2455,18 +2555,58 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
 
             try
             {
-                var testAnfis = new UnormAnfis(arg.model.xDimension, arg.model.rulesCount);
+                var bestFound;
                 
+                var shadowTrainAnfis = new UnormAnfis(arg.model.xDimension, arg.model.rulesCount);
+                shadowTrainAnfis.useTabPoints(arg.xandyTrainSet.X);
+                
+                var testAnfis = new UnormAnfis(arg.model.xDimension, arg.model.rulesCount);
                 testAnfis.useTabPoints(arg.xandyTestSet.X);
                 
                 function onProgress(phase, step, fCurrent, xCurrent)
                 {
+                    shadowTrainAnfis.useParameters(xCurrent);
+                    shadowTrainAnfis.evauateTabPoints();
+                    
                     testAnfis.useParameters(xCurrent);
                     testAnfis.evauateTabPoints();
                     
-                    var testResult = testClassifier(testAnfis.currentTabOutput, arg.xandyTestSet.Y, arg.model.ySeparator);
+                    var trainResult = testClassifier
+                    (
+                        shadowTrainAnfis.currentTabOutput, 
+                        arg.xandyTrainSet.Y, 
+                        arg.model.yAmplitude, 
+                        arg.model.ySeparator
+                    );
                     
-                    result.progress = {phase: phase, step: step, fCurrent: fCurrent, xCurrent: xCurrent, testResult: testResult};
+                    var testResult = testClassifier
+                    (
+                        testAnfis.currentTabOutput, 
+                        arg.xandyTestSet.Y, 
+                        arg.model.yAmplitude, 
+                        arg.model.ySeparator
+                    );
+                    
+                    if(bestFound === undefined)
+                    {
+                        bestFound = {optX: xCurrent, testResult: testResult};
+                    }
+                    else if(bestFound.testResult.err > testResult.err)
+                    {
+                        bestFound.optX = xCurrent;
+                        bestFound.testResult = testResult;
+                    }
+                    
+                    result.progress = 
+                    {
+                        phase: phase, 
+                        step: step, 
+                        fCurrent: fCurrent, 
+                        xCurrent: xCurrent, 
+                        trainResult: trainResult, 
+                        testResult: testResult,
+                        bestFound: bestFound
+                    };
                     
                     postMessage(result);
                 }
@@ -2490,7 +2630,25 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
                 testAnfis.useParameters(result.lbfgsResult.optX);
                 testAnfis.evauateTabPoints();
                 
-                result.lbfgsResult.testResult = testClassifier(testAnfis.currentTabOutput, arg.xandyTestSet.Y, arg.model.ySeparator);
+                result.lbfgsResult.testResult = testClassifier
+                (
+                    testAnfis.currentTabOutput, 
+                    arg.xandyTestSet.Y, 
+                    arg.model.yAmplitude, 
+                    arg.model.ySeparator
+                );
+                
+                if(bestFound === undefined)
+                {
+                    bestFound = {optX: result.lbfgsResult.optX, testResult: result.lbfgsResult.testResult};
+                }
+                else if(bestFound.testResult.err > result.lbfgsResult.testResult.err)
+                {
+                    bestFound.optX = result.lbfgsResult.optX;
+                    bestFound.testResult = result.lbfgsResult.testResult;
+                }
+                
+                result.lbfgsResult.bestFound = bestFound;
             }
             catch(e)
             {
