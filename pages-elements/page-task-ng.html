@@ -573,6 +573,10 @@
                                 </div>
                             </div>
                             
+                            <h1>&nbsp;</h1>
+                            
+                            <span class="help-block" ng-show="tan.phaseTrainingInProgress">{{::tan.lbfgsProcessingInProgressHint}}</span>
+                            
                         </div> 
                         
                         <div class="col-md-8" ng-show="tan.phaseTrainingInProgress">
@@ -600,6 +604,19 @@
                                         aria-valuemax="{{tan.lbfgsErrorValueMax}}"
                                         style="min-width: 3em; width: {{tan.lbfgsErrorProgress / tan.lbfgsErrorValueMax * 100}}%;">
                                     {{tan.lbfgsErrorProgress}}
+                                </div>
+                            </div>
+
+                            <span>{{::tan.lbfgsTrainClassifierErrorTitle}}</span>
+                            <div class="progress">
+                                <div    ng-class="tan.trainClassifierProgressClass" 
+                                        role="progressbar" 
+                                        aria-label="{{::tan.lbfgsTrainClassifierErrorProgressAriaLabel}}"
+                                        aria-valuenow="{{tan.lbfgsTrainClassifierErrorProgress}}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="{{tan.lbfgsTrainClassifierErrorValueMax}}"
+                                        style="min-width: 3em; width: {{tan.lbfgsTrainClassifierErrorProgress / tan.lbfgsTrainClassifierErrorValueMax * 100}}%;">
+                                    {{tan.lbfgsTrainClassifierErrorProgress}}
                                 </div>
                             </div>
 
