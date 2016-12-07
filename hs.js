@@ -31,14 +31,18 @@ var cachedFiles =
 {
     'jqgzip':       {mode: 'bin',   path: './jquery/jquery.js.gz'},
     'jqnogzip':     {mode: 'text',  path: './jquery/jquery.js'},
+    'cookiegzip':   {mode: 'bin',   path: './jscookie/js.cookie.min.js.gz'},
+    'cookienogzip': {mode: 'text',  path: './jscookie/js.cookie.min.js'},
     'nggzip':       {mode: 'bin',   path: './angular/angular.min.js.gz'},
     'ngnogzip':     {mode: 'text',  path: './angular/angular.min.js'},
+    'ngsangzip':    {mode: 'bin',   path: './angular/angular-sanitize.min.js.gz'},
+    'ngsanogzip':   {mode: 'text',  path: './angular/angular-sanitize.min.js'},
     'miscript':     {mode: 'text',  path: './scripts/master-injection.js'},
     'cliapis':      {mode: 'text',  path: './scripts/client-api.js'},
-    'station':      {mode: 'text',  path : './scripts/station.js'},
+    'stationg':     {mode: 'text',  path : './scripts/station-ng.js'},
     'taskng':       {mode: 'text',  path : './scripts/task-ng.js'},
     'pagestart':    {mode: 'text',  path : './pages-elements/pagestart'},
-    'pagestation':  {mode: 'text',  path : './pages-elements/page-station.html'},
+    'pagestationg': {mode: 'text',  path : './pages-elements/page-station-ng.html'},
     'pagemi':       {mode: 'text',  path : './pages-elements/page-mi.html'},
     'pagetaskng':   {mode: 'text',  path : './pages-elements/page-task-ng.html'},
     'pagend1':      {mode: 'text',  path : './pages-elements/pagend-1'},
@@ -93,10 +97,20 @@ var staticMap =
         'gz': {contentType: ctTextGz, contentId: 'jqgzip'}, 
         'nogzip': {contentType: ctText, contentId: 'jqnogzip'}
     },
+    'jscookiemap':
+    {
+        'gz': {contentType: ctTextGz, contentId: 'cookiegzip'}, 
+        'nogzip': {contentType: ctText, contentId: 'cookienogzip'}
+    },
     'ngmap':
     {
         'gz': {contentType: ctTextGz, contentId: 'nggzip'},
         'nogzip': {contentType: ctText, contentId: 'ngnogzip'}
+    },
+    'ngsanmap':
+    {
+        'gz': {contentType: ctTextGz, contentId: 'ngsangzip'},
+        'nogzip': {contentType: ctText, contentId: 'ngsanogzip'}
     },
     'bscssmap':
     {
@@ -154,7 +168,9 @@ function serveComposedPages(req, res)
 //------------------------------------------------------------------------------
 
 exapp.get('/jquery.js', serveStatic.bind(staticMap['jqmap']));
+exapp.get('/js.cookie.js', serveStatic.bind(staticMap['jscookiemap']));
 exapp.get('/angular.js', serveStatic.bind(staticMap['ngmap']));
+exapp.get('/angular-sanitize.js', serveStatic.bind(staticMap['ngsanmap']));
 exapp.get('/css/bootstrap.min.css', serveStatic.bind(staticMap['bscssmap']));
 exapp.get('/js/bootstrap.min.js', serveStatic.bind(staticMap['bsjsmap']));
 exapp.get('/fonts/glyphicons-halflings-regular.svg', serveStatic.bind(staticMap['bsfontsvgmap']));
@@ -166,7 +182,7 @@ exapp.get('/fonts/glyphicons-halflings-regular.eot', serveStatic2.bind(staticMap
 
 //------------------------------------------------------------------------------
 
-exapp.get('/', serveComposedPages.bind({index: 'stationpagecomp'}));
+exapp.get('/', serveComposedPages.bind({index: 'stationgpagecomp'}));
 exapp.get('/mi', serveComposedPages.bind({index: 'mipagecomp'}));
 exapp.get('/taskng', serveComposedPages.bind({index: 'taskngpagecomp'}));
 
@@ -255,15 +271,15 @@ Promise.all(asyncInitializationPhases)
     
     totalCachedSize += composedPages['mipagecomp'].length;
     
-    composedPages['stationpagecomp'] = 
+    composedPages['stationgpagecomp'] = 
         cachedFiles['pagestart'].content +
-        cachedFiles['pagestation'].content +
-        cachedFiles['pagend1'].content + 
+        cachedFiles['pagestationg'].content +
+        cachedFiles['pagendngbs'].content + 
         cachedFiles['cliapis'].content + '\n' +
-        cachedFiles['station'].content + '\n' +
+        cachedFiles['stationg'].content + '\n' +
         cachedFiles['pagend2'].content;
 
-    totalCachedSize += composedPages['stationpagecomp'].length;
+    totalCachedSize += composedPages['stationgpagecomp'].length;
     
     composedPages['taskngpagecomp'] = 
         cachedFiles['pagestart'].content +
