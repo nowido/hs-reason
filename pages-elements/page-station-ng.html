@@ -1,0 +1,61 @@
+<div class="container" role="main" ng-controller="MainController as vm" id="mainContainer">
+    <div class="row collapse" id="mainRow">
+        <div class="col-md-12">
+            
+            <!-- Grail Header -->
+            <div class="page-header">
+                <h1>
+                    {{::vm.pageCaption}}    
+                </h1>
+            </div>
+            
+            <div class="row">
+                
+                <!-- Grail Left -->
+                <div class="col-md-4">
+                    
+                    <div class="panel panel-primary">
+                        <div class="panel-heading">
+                            <h3 class="panel-title">
+                                {{::vm.leftPanelCaption}}
+                            </h3>
+                        </div>    
+                        <div class="panel-body">
+                            
+                            <label for="uid-input">{{::vm.userInvitation}}</label>
+                            <div class="input-group">
+                                <span class="input-group-addon"><span class="glyphicon glyphicon-user"></span></span>
+                                <input  id="uid-input"
+                                        type="text" 
+                                        class="form-control" 
+                                        placeholder="{{::vm.userIdPlaceholder}}"
+                                        ng-model="vm.userId"
+                                        ng-change="vm.onUserIdChange()"
+                                        aria-describedby="uid-help">
+                            </div>
+                            <span class="help-block" id="uid-help">{{::vm.userIdHint}}</span>
+                            
+                            <div ng-show="vm.userId">
+                                <input  type="checkbox" 
+                                        ng-model="vm.rememberUserId"
+                                        ng-change="vm.onRememberUserIdCheckChanged()"
+                                        aria-label="::vm.rememberUserIdAriaLabel">    
+                                <span>&nbsp;</span>
+                                <span>{{::vm.rememberUserIdHint}}</span>        
+                            </div>
+                            
+                            <div class="page-header"></div>
+                            
+                            <p class="text-primary text-left" ng-bind-html="vm.userHint"></p>
+                            <p class="text-info text-left">{{::vm.passwordHint}}</p>    
+                            
+                        </div> <!-- end panel body -->
+                    </div> <!-- end panel -->
+                    
+                </div> <!-- end Grail Left -->
+                
+            </div>
+            
+        </div>
+    </div>
+</div>
