@@ -29,6 +29,7 @@
                                         type="text" 
                                         class="form-control" 
                                         placeholder="{{::vm.userIdPlaceholder}}"
+                                        ng-disabled="vm.fixUserId"
                                         ng-model="vm.userId"
                                         ng-change="vm.onUserIdChange()"
                                         aria-describedby="uid-help">
@@ -37,6 +38,7 @@
                             
                             <div ng-show="vm.userId">
                                 <input  type="checkbox" 
+                                        ng-disabled="vm.fixUserId"
                                         ng-model="vm.rememberUserId"
                                         ng-change="vm.onRememberUserIdCheckChanged()"
                                         aria-label="::vm.rememberUserIdAriaLabel">    
@@ -49,13 +51,229 @@
                             <p class="text-primary text-left" ng-bind-html="vm.userHint"></p>
                             <p class="text-info text-left">{{::vm.passwordHint}}</p>    
                             
+                            <div class="page-header"></div>
+                            
+                            <div class="btn-group btn-group-justified" role="group" ng-show="vm.canGo">
+                                <div class="btn-group" role="group">
+                                    <button type="button" 
+                                            aria-label="{{::vm.buttonGoAriaLabel}}"
+                                            class="btn btn-primary"
+                                            ng-click="vm.selectTask()">
+                                        <span class="glyphicon glyphicon-play"></span>&nbsp;{{::vm.buttonGoCaption}}
+                                    </button>
+                                </div>
+                            </div>
+                            
                         </div> <!-- end panel body -->
                     </div> <!-- end panel -->
                     
                 </div> <!-- end Grail Left -->
                 
+                <!-- Grail Main -->    
+                <div class="col-md-8">
+                    <div class="panel panel-primary">
+                        <div class="panel-heading">
+                            <h3 class="panel-title">
+                                {{::vm.mainPanelCaption}}
+                            </h3>
+                        </div>
+                        <div class="panel-body">
+                        
+                            <span class="help-block" ng-show="vm.selectTaskPhase">{{::vm.selectingTaskHint}}</span>
+                            <span class="help-block" ng-show="vm.taskSelectedPhase">{{vm.selectedTaskPath}}</span>
+                            
+                            <!-- CSV data download progress -->
+                            <div class="row" ng-show="vm.phaseDownload">
+                                <div class="col-md-12">
+                                    
+                                    <h5>{{::vm.trainDataDownloadHeader}}</h5>
+                                    
+                                    <div class="progress">
+                                        <div    class="progress-bar progress-bar-success" 
+                                                role="progressbar" 
+                                                aria-label="{{::vm.trainDataDownloadProgressAriaLabel}}"
+                                                aria-valuenow="{{vm.trainDataDownloadProgress}}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100" 
+                                                style="min-width: 3em; width: {{vm.trainDataDownloadProgress}}%;">{{vm.trainDataDownloadProgress}}%
+                                        </div>
+                                    </div>
+        
+                                    <h5>{{::vm.testDataDownloadHeader}}</h5>
+        
+                                    <div class="progress">
+                                        <div    class="progress-bar progress-bar-success" 
+                                                role="progressbar" 
+                                                aria-label="{{::vm.testDataDownloadProgressAriaLabel}}"
+                                                aria-valuenow="{{vm.testDataDownloadProgress}}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100" 
+                                                style="min-width: 3em; width: {{vm.testDataDownloadProgress}}%;">{{vm.testDataDownloadProgress}}%
+                                        </div>
+                                    </div>
+                                    
+                                    <span class="help-block" ng-show="vm.phaseAnalysisInProgress">{{::vm.analysisInProgressHint}}</span>
+                                </div>
+                            </div> <!-- end CSV data download progress -->
+                            
+                            <!-- L-BFGS stuff -->
+                            <div class="row">
+                                <div class="col-md-12" ng-show="vm.phaseAnalyse">
+                                    
+                                    <span class="help-block" ng-show="vm.taskClusters">{{::vm.clustersCountHint}}
+                                        <span>&nbsp;</span>
+                                        <span>{{vm.taskClusters.length}}</span>
+                                    </span>
+
+                                    <span class="help-block" ng-show="vm.anfisRulesCount">{{::vm.rulesCountHint}}
+                                        <span>&nbsp;</span>
+                                        <span>{{vm.anfisRulesCount}}</span>
+                                    </span>
+                                    
+                                    <span class="help-block" ng-show="vm.phaseTrainingInProgress">{{::vm.lbfgsProcessingInProgressHint}}</span>        
+                                    
+                                </div>
+                            </div>
+                            
+                            <!-- training progress bars -->
+                            <div class="row">
+                                <div class="col-md-12" ng-show="vm.phaseTrainingInProgress">
+                                    
+                                    <span>{{::vm.lbfgsProgressTitle}}</span>
+                                    <div class="progress">
+                                        <div    class="progress-bar progress-bar-info" 
+                                                role="progressbar" 
+                                                aria-label="{{::vm.lbfgsProgressAriaLabel}}"
+                                                aria-valuenow="{{vm.lbfgsProgress}}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="{{vm.taskModel.lbfgsIterationsCount}}" 
+                                                style="min-width: 3em; width: {{vm.lbfgsProgress / vm.taskModel.lbfgsIterationsCount * 100}}%;">
+                                            {{vm.lbfgsProgress}}
+                                        </div>
+                                    </div>
+                                    
+                                    <span>{{::vm.lbfgsRawErrorTitle}}</span>
+                                    <div class="progress">
+                                        <div    class="progress-bar progress-bar-warning" 
+                                                role="progressbar" 
+                                                aria-label="{{::vm.lbfgsErrorProgressAriaLabel}}"
+                                                aria-valuenow="{{vm.lbfgsErrorProgress}}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="{{vm.lbfgsErrorValueMax}}"
+                                                style="min-width: 3em; width: {{vm.lbfgsErrorProgress / vm.lbfgsErrorValueMax * 100}}%;">
+                                            {{vm.lbfgsErrorProgress}}
+                                        </div>
+                                    </div>
+        
+                                    <span>{{::vm.lbfgsTrainClassifierErrorTitle}}</span>
+                                    <div class="progress">
+                                        <div    ng-class="vm.trainClassifierProgressClass" 
+                                                role="progressbar" 
+                                                aria-label="{{::vm.lbfgsTrainClassifierErrorProgressAriaLabel}}"
+                                                aria-valuenow="{{vm.lbfgsTrainClassifierErrorProgress}}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="{{vm.lbfgsTrainClassifierErrorValueMax}}"
+                                                style="min-width: 3em; width: {{vm.lbfgsTrainClassifierErrorProgress / vm.lbfgsTrainClassifierErrorValueMax * 100}}%;">
+                                            {{vm.lbfgsTrainClassifierErrorProgress}}
+                                        </div>
+                                    </div>
+        
+                                    <span>{{::vm.lbfgsClassifierErrorTitle}}</span>
+                                    <div class="progress">
+                                        <div    ng-class="vm.classifierProgressClass" 
+                                                role="progressbar" 
+                                                aria-label="{{::vm.lbfgsClassifierErrorProgressAriaLabel}}"
+                                                aria-valuenow="{{vm.lbfgsClassifierErrorProgress}}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="{{vm.lbfgsClassifierErrorValueMax}}"
+                                                style="min-width: 3em; width: {{vm.lbfgsClassifierErrorProgress / vm.lbfgsClassifierErrorValueMax * 100}}%;">
+                                            {{vm.lbfgsClassifierErrorProgress}}
+                                        </div>
+                                    </div>
+                                    
+                                </div> 
+                            </div> <!-- end training progress bars -->
+                            
+                            <!-- L-BFGS training results -->
+                            <div class="row">
+                                <div class="col-md-12" ng-show="vm.phaseTrainingDone">
+                                    
+                                    <h4>
+                                        <span ng-show="vm.lbfgsDiverged">
+                                            <span class="glyphicon glyphicon-alert"></span>
+                                            <span>&nbsp;</span>
+                                            <span>{{tan.lbfgsDiverged}}</span>
+                                        </span>
+                                        
+                                        <span ng-show="vm.lbfgsWeird">
+                                            <span class="glyphicon glyphicon-question-sign"></span>
+                                            <span>&nbsp;</span>
+                                            <span>{{tan.lbfgsWeird}}</span>
+                                        </span>
+                                        
+                                        <span ng-show="vm.lbfgsLocal">
+                                            <span class="glyphicon glyphicon-map-marker"></span>
+                                            <span>&nbsp;</span>
+                                            <span>{{vm.lbfgsLocal}}</span>
+                                        </span>
+                                    </h4>
+                                    
+                                    <h4>
+                                        <span class="label label-primary">
+                                            <span class="glyphicon glyphicon-education"></span>
+                                            <span>&nbsp;</span>
+                                            <span>{{vm.education}}</span>
+                                        </span>
+                                        <span>&nbsp;</span>
+                                        <span class="label label-default">
+                                            <span class="glyphicon glyphicon-thumbs-down"></span>
+                                            <span>&nbsp;</span>
+                                            <span>{{vm.classifierError}}</span>
+                                        </span>
+                                    </h4>
+                                    
+                                    <span class="help-block">
+                                        <span>{{::vm.trainingTimePrefix}}</span>
+                                        <span>{{vm.lbfgsTrainingTime}}</span>
+                                        <span>{{::vm.trainingTimePostfix}}</span>
+                                    </span>
+                                    
+                                </div>
+                            </div> <!-- end L-BFGS training results -->
+                            <!-- end L-BFGS stuff -->
+
+                        </div> <!-- end panel body -->
+                    </div> <!-- end main panel -->    
+                </div> <!-- end Grail Right col -->
+
+            </div> <!-- end Grail Mid Line row -->
+           
+            <div class="page-header">
+                <h1></h1>
             </div>
-            
+           
         </div>
     </div>
+    
+    <!-- Status -->
+    <nav class="nav navbar-default navbar-fixed-bottom" id="statusBlock" style="display: none;">
+        <div class="container" role="status">
+            <div class="row">
+                <div class="col-md-4">
+                    <h4>
+                        <span class="label" ng-class="vm.indicatorClass">
+                            <span ng-class="vm.indicatorGlyphClass" ng-show="vm.indicatorGlyphClass"></span>
+                            <span ng-show="vm.indicatorInfo">{{vm.indicatorInfo}}</span>
+                        </span>
+                    </h4>
+                </div>
+                <div class="col-md-8">
+                    <h4>
+                        <p ng-class="vm.infoClass">{{vm.info}}</p>
+                    </h4>
+                </div>
+            </div>   
+        </div>    
+    </nav>
+    
 </div>
