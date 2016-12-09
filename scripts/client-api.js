@@ -829,18 +829,18 @@ experimentService.prototype.splitBulkToArgsAndOutput = function(dataBulk)
     return result;
 }
 
-experimentService.prototype.initAnfisModel = function(clusters, rulesCount, adaptiveRulesCount, qFactor, radius)
+experimentService.prototype.initAnfisModel = function(clusters, taskModel)
 {
     const mutationRate = 0.1;
     const mutationMinus = -mutationRate;
     const mutationPlus = mutationRate;
     
-    var anfisModel = {};
+    var anfisModel = {task: taskModel};
     
     var yIndex = clusters[0].center.length - 1;
     
     anfisModel.xDimension = yIndex;
-    anfisModel.rulesCount = (adaptiveRulesCount ? clusters.length : rulesCount);
+    anfisModel.rulesCount = (taskModel.adaptiveAnfisRulesCount ? clusters.length : taskModel.anfisRulesCount);
     anfisModel.parameters = [];
     
         // initialize model parameters
@@ -864,7 +864,7 @@ experimentService.prototype.initAnfisModel = function(clusters, rulesCount, adap
         }
             // q
         //var q = qFactor * radius;
-        var q = qFactor;
+        var q = taskModel.qFactor;
         
         for(var col = 0; col < yIndex; ++col)
         {
@@ -2091,16 +2091,16 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
                     (
                         shadowTrainAnfis.currentTabOutput, 
                         arg.xandyTrainSet.Y, 
-                        arg.model.yAmplitude, 
-                        arg.model.ySeparator
+                        arg.model.task.yAmplitude, 
+                        arg.model.task.ySeparator
                     );
                     
                     var testResult = testClassifier
                     (
                         testAnfis.currentTabOutput, 
                         arg.xandyTestSet.Y, 
-                        arg.model.yAmplitude, 
-                        arg.model.ySeparator
+                        arg.model.task.yAmplitude, 
+                        arg.model.task.ySeparator
                     );
                     
                     if(bestFound === undefined)
@@ -2153,8 +2153,8 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
                 (
                     testAnfis.currentTabOutput, 
                     arg.xandyTestSet.Y, 
-                    arg.model.yAmplitude, 
-                    arg.model.ySeparator
+                    arg.model.task.yAmplitude, 
+                    arg.model.task.ySeparator
                 );
                 
                 if(bestFound === undefined)
