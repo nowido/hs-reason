@@ -1019,11 +1019,12 @@ $(document).ready(() =>
         .value('taskAnalysisElementId', 'taskAnalysisContainer')
         .value('yadNavigatorElementId', 'yadNavigatorContainer')
         .service('interService', interService)
-        .service('yadStorageServise', ['commander', YadStorage])
-        .service('taskStorageService', ['yadStorageServise', taskStorageService])
-        .service('csvDataStorageService', ['yadStorageServise', csvDataStorageService])
+        .service('yadStorageService', ['commander', YadStorage])
+        .service('taskStorageService', ['yadStorageService', taskStorageService])
+        .service('csvDataStorageService', ['yadStorageService', csvDataStorageService])
+        .service('updatesPushService', ['yadStorageService', updatesPushService])
         .service('workersPoolFactory', workersPoolFactory)
-        .service('experimentService', ['workersPoolFactory', experimentService])
+        .service('experimentService', ['workersPoolFactory', 'updatesPushService', experimentService])
         .service('yadBrowseService', ['commander', yadBrowseService])
         .controller('MainController',     
         [
