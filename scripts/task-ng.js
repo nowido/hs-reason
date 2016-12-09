@@ -421,9 +421,9 @@ function TaskAnalysisController
     
     tan.trainDataDownloadProgressCallback = function(evt)
     {
-        ++tan.trainProgressStep;
+        ++tan.trainSetDownloadProgressStep;
         
-        if((tan.trainProgressStep % 5 === 0) || (evt.loaded === evt.total))
+        if((tan.trainSetDownloadProgressStep % 5 === 0) || (evt.loaded === evt.total))
         {
             tan.trainDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
             $scope.$apply();    
@@ -432,9 +432,9 @@ function TaskAnalysisController
 
     tan.testDataDownloadProgressCallback = function(evt)
     {
-        ++tan.testProgressStep;
+        ++tan.testSetDownloadProgressStep;
            
-        if((tan.testProgressStep % 5 === 0) || (evt.loaded === evt.total))
+        if((tan.testSetDownloadProgressStep % 5 === 0) || (evt.loaded === evt.total))
         {
             tan.testDataDownloadProgress = Math.floor(evt.loaded / evt.total * 100);
             $scope.$apply();    
@@ -443,8 +443,8 @@ function TaskAnalysisController
     
     tan.downloadData = function()
     {
-        tan.trainProgressStep = 0;
-        tan.testProgressStep = 0;
+        tan.trainSetDownloadProgressStep = 0;
+        tan.testSetDownloadProgressStep = 0;
         
         tan.trainDataDownloadProgress = 0;
         tan.testDataDownloadProgress = 0;
@@ -635,8 +635,6 @@ function TaskAnalysisController
         tan.lbfgsProgress = lbfgsProgressInfo.step;
         
         $scope.$apply();
-        
-        //console.log(lbfgsProgressInfo);    
     }
     
     tan.getTrainButtonClass = function()
@@ -655,18 +653,8 @@ function TaskAnalysisController
         
         experimentService.initWorkers(1);
         
-        var anfisModel = experimentService.initAnfisModel
-        (
-            tan.taskClusters, 
-            tan.taskModel.anfisRulesCount, 
-            tan.taskModel.adaptiveAnfisRulesCount, 
-            tan.taskModel.qFactor, 
-            tan.taskModel.clusterizationRadius
-        );
-        
-        anfisModel.yAmplitude = tan.taskModel.yAmplitude;
-        anfisModel.ySeparator = tan.taskModel.ySeparator;
-        
+        var anfisModel = experimentService.initAnfisModel(tan.taskClusters, tan.taskModel);
+
         var xandyTrainSet = experimentService.splitBulkToArgsAndOutput(tan.mappedTrainBulk);
         
         experimentService.mapOutput(tan.testDataBulk, tan.taskModel.yAmplitude, 0.5, tan.taskModel.ySeparator);
