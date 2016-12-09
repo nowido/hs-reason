@@ -29,7 +29,7 @@ function decimalRound(number, precision)
     var tempNumber = number * factor;
     var roundedTempNumber = Math.round(tempNumber);
     return roundedTempNumber / factor;
-};
+}
 
 //------------------------------------------------------------------------------
 
@@ -564,9 +564,11 @@ WorkersPool.prototype.terminate = function()
 
 //------------------------------------------------------------------------------
 
-function experimentService(workersPoolFactory)
+function experimentService(workersPoolFactory, updatesPushService)
 {
     this.workersPoolFactory = workersPoolFactory;
+    
+    this.updatesPushService = updatesPushService;
 }
 
 experimentService.prototype.initWorkers = function(workersCount)
@@ -2036,7 +2038,47 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
     };
 }
 ////////////////// end LBFGS-for-ANFIS optimization stuff   
+
+function decimalRound(number, precision) 
+{
+    var factor = Math.pow(10, precision);
+    var tempNumber = number * factor;
+    var roundedTempNumber = Math.round(tempNumber);
+    return roundedTempNumber / factor;
+}
     
+function composeModel(taskModel, optParameters, testResult, processedBy)
+{
+    var model = {};
+    
+    Object.keys(taskModel).forEach(key => 
+    {
+        model[key] = taskModel[key];
+    });
+    
+    var parameters = [];
+    
+    optParameters.forEach((value, index) => 
+    {
+        parameters[index] = decimalRound(value, 6);
+    });
+
+    model.optimizedParameters = parameters;
+    
+    model.classifierError = testResult.err;
+    model.classifierError0 = testResult.err0;
+    model.classifierError1 = testResult.err1;
+
+    if(processedBy)
+    {
+        model.processedBy = processedBy;
+    }
+    
+    return model;
+}
+
+//////////////////        
+
     onmessage = function(e)
     {
         var arg = e.data;
@@ -2062,10 +2104,10 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
         }
         else if(arg.proc === 'optimize')
         {
-            var timeStart = Date.now();
-
             try
             {
+                var timeStart = Date.now();
+                
                 var shadowStep = 0;
                 var stepsToReport = arg.lbfgsArgs.lbfgsReportStepsCount;
                 
@@ -2103,14 +2145,34 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
                         arg.model.task.ySeparator
                     );
                     
+                    var goodModel = (testResult.err < arg.model.task.acceptableErrorThreshold);
+                    var considerUpdateStored = false;
+                    
                     if(bestFound === undefined)
                     {
                         bestFound = {optX: xCurrent, testResult: testResult};
+                        considerUpdateStored = true;
                     }
                     else if(bestFound.testResult.err > testResult.err)
                     {
                         bestFound.optX = xCurrent;
                         bestFound.testResult = testResult;
+                        considerUpdateStored = true;
+                    }
+                    
+                    if(goodModel && considerUpdateStored)
+                    {
+                        result.pushUpdate = composeModel
+                        (
+                            arg.model.task, 
+                            bestFound.optX, 
+                            bestFound.testResult, 
+                            arg.model.processedBy
+                        );
+                        
+                        delete result.progress; // if any
+                        
+                        postMessage(result);
                     }
                     
                     if((shadowStep % stepsToReport === 1) || (stepsToReport === 1))
@@ -2157,26 +2219,47 @@ function trainWithLbfgs(arg, onLbfgsProgressCallback)
                     arg.model.task.ySeparator
                 );
                 
+                var goodModel = (result.lbfgsResult.testResult.err < arg.model.task.acceptableErrorThreshold);
+                var considerUpdateStored = false;
+                
                 if(bestFound === undefined)
                 {
                     bestFound = {optX: result.lbfgsResult.optX, testResult: result.lbfgsResult.testResult};
+                    considerUpdateStored = true;
                 }
                 else if(bestFound.testResult.err > result.lbfgsResult.testResult.err)
                 {
                     bestFound.optX = result.lbfgsResult.optX;
                     bestFound.testResult = result.lbfgsResult.testResult;
+                    considerUpdateStored = true;
                 }
                 
                 result.lbfgsResult.bestFound = bestFound;
+                
+                if(goodModel && considerUpdateStored)
+                {
+                    result.pushUpdate = composeModel
+                    (
+                        arg.model.task, 
+                        bestFound.optX, 
+                        bestFound.testResult, 
+                        arg.model.processedBy
+                    );
+                    
+                    delete result.progress; // if any
+                    
+                    postMessage(result);
+                }
+                
+                result.lbfgsResult.timeWorked = Date.now() - timeStart;
             }
             catch(e)
             {
                 result.error = e;
             }
-
-            result.lbfgsResult.timeWorked = Date.now() - timeStart;
             
             delete result.progress; // if any
+            delete result.pushUpdate; // if any
             
             postMessage(result);
         }
@@ -2197,6 +2280,10 @@ experimentService.prototype.onWorkerMessage = function(e)
         {
             workerTaskContext.progressCallback(arg.progress);    
         }
+    }
+    else if(arg.pushUpdate)
+    {
+        entry.updatesPushService.pushUpdate(arg.pushUpdate);
     }
     else
     {
@@ -2295,6 +2382,149 @@ experimentService.prototype.promiseOptimize = function(model, xandyTrainSet, xan
     });
 }
 
+//------------------------------------------------------------------------------
+
+function updatesPushService(yadStorage)
+{
+    this.yadStorage = yadStorage;
+    
+    this.clearCache();
+}
+
+updatesPushService.prototype.clearCache = function()
+{
+    this.folderCache = {};
+    this.fileCache = {};
+}
+
+updatesPushService.prototype.pushUpdate = function(model)
+{
+    var entry = this;
+    
+    var token = model.acceptableModelsTargetToken;
+    
+    if((!token) || (token.length === 0))
+    {
+        return;
+    }
+    
+    var folderCached = entry.folderCache[token];
+    
+    if(folderCached === undefined)
+    {
+            // we need create folder first
+        
+        entry.promiseFolder(entry.yadStorage.commander, token)
+        .then(() => 
+        {
+                // we will not try create folder for 'token' anymore on this session
+                
+            entry.folderCache[token] = true;    
+            
+            entry.promiseStore(model).catch(console.log);
+            
+        })
+        .catch(console.log);
+    }
+    else
+    {
+            // folder exists, try store
+            
+        entry.promiseStore(model).catch(console.log);
+    }
+}
+
+updatesPushService.prototype.promiseFolder = function(commander, token)
+{
+    return Promise.resolve().then(() => 
+    {
+        var yadCommand = 
+        {
+            command: 'CREATEFOLDER',
+            path: 'app:/good/' + token,
+            overwrite: false
+        };
+
+        return commander.promiseCommand('YAD', yadCommand);
+    })
+    .catch(errContext => 
+    {
+        var errObj = JSON.parse(errContext.message.error);
+        
+        if(errObj.error === 'DiskPathPointsToExistentDirectoryError')
+        {
+                // OK, folder exists
+            return Promise.resolve();    
+        }
+        else
+        {
+                // error other than 'Folder already exists'
+            return Promise.reject(errContext);
+        }
+    });
+}
+
+updatesPushService.prototype.promiseStore = function(model)
+{
+    var entry = this;
+
+    return new Promise((resolve, reject) => 
+    {
+        setTimeout(() => 
+        {
+            var percent = (100 * model.classifierError).toFixed(1);
+            
+            var fileName = model.acceptableModelsTargetToken + '-' + percent + '.json'; 
+            
+            var filePath = 'app:/good/' + model.acceptableModelsTargetToken + '/' + fileName;
+            
+            var strModel = JSON.stringify(model);
+            
+            var fileNameCached = entry.fileCache[fileName];
+            
+            if(fileNameCached === undefined)
+            {
+                entry.promiseFile(filePath, strModel).then(() => 
+                {
+                    entry.fileCache[fileName] = true;
+                    
+                    resolve();
+                })
+                .catch(reject);
+            }
+            else
+            {
+                // nothing to do: we have already stored a model of this quality;
+                // but it is OK
+                    
+                resolve();    
+            }
+            
+        }, Math.floor(300 + Math.random() * 400));
+    });
+}
+
+updatesPushService.prototype.promiseFile = function(filePath, strModel)
+{
+    var entry = this;
+    
+    return entry.yadStorage.asyncUpload(filePath, strModel)
+    .catch(errContext => 
+    {
+        if(errContext.message && errContext.message.error)
+        {
+            var errObj = JSON.parse(errContext.message.error);   
+            
+            if(errObj.error && (errObj.error === 'DiskResourceAlreadyExistsError'))
+            {
+                    // OK, file exists
+                return Promise.resolve();    
+            }
+        }
+            // error other than 'File already exists'
+        return Promise.reject(errContext);
+    });
+}
 //------------------------------------------------------------------------------
 
 function binToBase64(buffer)
