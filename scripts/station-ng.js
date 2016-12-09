@@ -92,6 +92,8 @@ function MainController
         
         vm.selectTaskPhase = true;
         
+        taskSelectionService.yadBrowseService.clearCache();
+        
         taskSelectionService.promiseRandomTaskPath()
         .then(taskPath => 
         {
@@ -337,8 +339,6 @@ function MainController
         vm.phaseTrainingInProgress = true;
         vm.phaseTrainingDone = false;
         
-            // to do provide 'good models token' to make possible good model storage
-            
         return experimentService.promiseOptimize(anfisModel, xandyTrainSet, xandyTestSet, lbfgsArgs, vm.lbfgsProgressCallback);
     }
     
@@ -490,13 +490,14 @@ $(document).ready(() =>
     angular.module('computeStation', ['ngSanitize'])
         .value('socket', socket)
         .value('commander', commander)
-        .service('yadStorageServise', ['commander', YadStorage])
-        .service('taskStorageService', ['yadStorageServise', taskStorageService])
+        .service('yadStorageService', ['commander', YadStorage])
+        .service('taskStorageService', ['yadStorageService', taskStorageService])
         .service('yadBrowseService', ['commander', yadBrowseService])
         .service('taskSelectionService', ['yadBrowseService', taskSelectionService])
-        .service('csvDataStorageService', ['yadStorageServise', csvDataStorageService])
+        .service('csvDataStorageService', ['yadStorageService', csvDataStorageService])
+        .service('updatesPushService', ['yadStorageService', updatesPushService])
         .service('workersPoolFactory', workersPoolFactory)
-        .service('experimentService', ['workersPoolFactory', experimentService])
+        .service('experimentService', ['workersPoolFactory', 'updatesPushService', experimentService])
         .controller('MainController',     
         [
             '$scope', 
