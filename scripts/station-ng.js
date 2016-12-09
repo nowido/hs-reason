@@ -310,24 +310,11 @@ function MainController
     
     vm.promiseTrainWithLbfgs = function()
     {
-        var anfisModel = experimentService.initAnfisModel
-        (
-            vm.taskClusters, 
-            vm.taskModel.anfisRulesCount, 
-            vm.taskModel.adaptiveAnfisRulesCount, 
-            vm.taskModel.qFactor, 
-            vm.taskModel.clusterizationRadius
-        );
+        var anfisModel = experimentService.initAnfisModel(vm.taskClusters, vm.taskModel);
 
         vm.anfisRulesCount = vm.taskModel.adaptiveAnfisRulesCount ?
             ('adaptive, ' + anfisModel.rulesCount) : anfisModel.rulesCount;
         
-        anfisModel.yAmplitude = vm.taskModel.yAmplitude;
-        anfisModel.ySeparator = vm.taskModel.ySeparator;
-            
-            // general task info to store with good models while training
-            
-        anfisModel.task = vm.taskModel;
         anfisModel.processedBy = vm.userId;
 
             // prepare datasets (reformat to conform L-BFGS unit requirements)
