@@ -73,10 +73,10 @@ function MainController
     vm.lbfgsRawErrorTitle = 'Raw train error:';
     vm.lbfgsErrorProgressAriaLabel = vm.lbfgsRawErrorTitle;
     
-    vm.lbfgsTrainClassifierErrorTitle = 'Train error:'
+    vm.lbfgsTrainClassifierErrorTitle = 'Train error, %:'
     vm.lbfgsTrainClassifierErrorProgressAriaLabel = vm.lbfgsTrainClassifierErrorTitle;
     
-    vm.lbfgsClassifierErrorTitle = 'Test error:';
+    vm.lbfgsClassifierErrorTitle = 'Test error, %:';
     vm.lbfgsClassifierErrorProgressAriaLabel = vm.lbfgsClassifierErrorTitle;
     
     vm.trainingTimePrefix = 'Done in';
