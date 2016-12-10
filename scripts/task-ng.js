@@ -1057,6 +1057,8 @@ $(document).ready(() =>
     
     $('#mainRow').toggleClass('collapse', false);
     $('#statusBlock').css('display', 'block');
+    
+    document.title = 'HS tools';
 });
 
 //------------------------------------------------------------------------------
