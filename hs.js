@@ -5,6 +5,8 @@ var exapp = require('express')();
 var http = require('http');
 var server = http.createServer(exapp);
 
+var favicon = require('serve-favicon');
+
 //------------------------------------------------------------------------------
 
 var asyncrw = require('./modules/asyncrw.js');
@@ -164,6 +166,10 @@ function serveComposedPages(req, res)
     res.set(ctHtml);
     res.send(composedPages[this.index]);
 }
+
+//------------------------------------------------------------------------------
+
+exapp.use(favicon(__dirname + '/images/favicon.ico'));
 
 //------------------------------------------------------------------------------
 
