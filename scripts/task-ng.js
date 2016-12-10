@@ -392,10 +392,10 @@ function TaskAnalysisController
     tan.lbfgsRawErrorTitle = 'Raw train error:';
     tan.lbfgsErrorProgressAriaLabel = tan.lbfgsRawErrorTitle;
     
-    tan.lbfgsTrainClassifierErrorTitle = 'Train error:'
+    tan.lbfgsTrainClassifierErrorTitle = 'Train error, %:'
     tan.lbfgsTrainClassifierErrorProgressAriaLabel = tan.lbfgsTrainClassifierErrorTitle;
     
-    tan.lbfgsClassifierErrorTitle = 'Test error:';
+    tan.lbfgsClassifierErrorTitle = 'Test error, %:';
     tan.lbfgsClassifierErrorProgressAriaLabel = tan.lbfgsClassifierErrorTitle;
     
     tan.buttonStopLbfgsCaption = 'Stop';
